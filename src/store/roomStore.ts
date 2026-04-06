@@ -9,6 +9,7 @@ import {
   verticesBoundingBox,
   ROOM_CANVAS_SCALE,
   rotateVertices90CW,
+  rotateVertices90CCW,
   snapCmToGrid,
   snapVertexCmToGrid,
   snapVerticesCmToGrid,
@@ -54,6 +55,7 @@ interface RoomStoreState {
   setCeilingNotes: (notes: string) => void;
 
   rotateRoom: () => void;
+  rotateRoomCCW: () => void;
 
   addSubSpace: (subSpace: SubSpace) => void;
   removeSubSpace: (id: string) => void;
@@ -213,6 +215,15 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => {
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CW(d.vertices));
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      return { draft: { ...d, vertices, walls, subSpaces } };
+    }),
+
+  rotateRoomCCW: () =>
+    set((state) => {
+      const d = state.draft;
+      const vertices = snapVerticesCmToGrid(rotateVertices90CCW(d.vertices));
       const walls = generateWallsFromVertices(vertices, d.height);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
       return { draft: { ...d, vertices, walls, subSpaces } };

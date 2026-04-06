@@ -170,3 +170,20 @@ export function rotateVertices90CW(vertices: RoomVertex[]): RoomVertex[] {
     y: v.y - rbb.minY,
   }));
 }
+
+export function rotateVertices90CCW(vertices: RoomVertex[]): RoomVertex[] {
+  const bb = verticesBoundingBox(vertices);
+  const cx = bb.minX + bb.width / 2;
+  const cy = bb.minY + bb.height / 2;
+
+  const rotated = vertices.map((v) => ({
+    x: Math.round(cx - (v.y - cy)),
+    y: Math.round(cy + (v.x - cx)),
+  }));
+
+  const rbb = verticesBoundingBox(rotated);
+  return rotated.map((v) => ({
+    x: v.x - rbb.minX,
+    y: v.y - rbb.minY,
+  }));
+}

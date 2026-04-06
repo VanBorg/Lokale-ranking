@@ -5,7 +5,7 @@ import { Button } from '../../../ui/Button';
 import { StepContainer } from '../../shared/StepContainer';
 import { StepHeader } from '../../shared/StepHeader';
 import { PresetPicker } from './PresetPicker';
-import { VertexEditor } from './VertexEditor';
+import { WallLengthEditor } from './WallLengthEditor';
 import type { RoomType } from '../../../../types/room';
 import { ROOM_TYPE_OPTIONS } from '../../../../utils/roomNaming';
 
@@ -13,17 +13,17 @@ export const Step1Shape = () => {
   const name = useRoomStore((s) => s.draft.name);
   const roomType = useRoomStore((s) => s.draft.roomType);
   const height = useRoomStore((s) => s.draft.height);
-  const walls = useRoomStore((s) => s.draft.walls);
   const setName = useRoomStore((s) => s.setName);
   const setRoomType = useRoomStore((s) => s.setRoomType);
   const setHeight = useRoomStore((s) => s.setHeight);
   const rotateRoom = useRoomStore((s) => s.rotateRoom);
+  const rotateRoomCCW = useRoomStore((s) => s.rotateRoomCCW);
 
   return (
     <StepContainer>
       <StepHeader
         title="Vorm & Afmetingen"
-        description="Kies een basisvorm en pas de hoekpunten aan. Links op de plattegrond zie je een live voorbeeld — versleep de turquoise cirkels om de vorm aan te passen."
+        description="Kies de figuur die het beste past bij de kamer."
       />
 
       <Select
@@ -43,16 +43,19 @@ export const Step1Shape = () => {
       />
 
       <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Basisvorm
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Basisvorm</p>
         <PresetPicker />
-        <Button variant="secondary" onClick={rotateRoom} className="mt-1 w-full">
-          ↻ Kwartslag draaien
-        </Button>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={rotateRoomCCW} className="w-full">
+            ↺ Links draaien
+          </Button>
+          <Button variant="secondary" onClick={rotateRoom} className="w-full">
+            ↻ Rechts draaien
+          </Button>
+        </div>
       </div>
 
-      <VertexEditor />
+      <WallLengthEditor />
 
       <Input
         id="dim-height"
@@ -63,15 +66,6 @@ export const Step1Shape = () => {
         value={height}
         onChange={(e) => setHeight(parseInt(e.target.value, 10) || 0)}
       />
-
-      <div className="rounded-lg bg-app p-3">
-        <p className="text-sm font-medium text-white">
-          Gedetecteerde wanden: <strong>{walls.length}</strong>
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {walls.map((w) => w.label).join(' · ')}
-        </p>
-      </div>
     </StepContainer>
   );
 };

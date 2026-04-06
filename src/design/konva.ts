@@ -1,12 +1,12 @@
 export const KONVA_COLORS = {
-  roomFill: '#e0f2fe',
+  roomFill: 'rgba(37, 99, 235, 0.32)',
   roomStroke: '#2563eb',
-  roomLabel: '#1e3a5f',
-  roomLabelSub: '#1d4ed8',
+  roomLabel: '#93c5fd',
+  roomLabelSub: '#60a5fa',
 
-  previewFill: '#dbeafe',
+  previewFill: 'rgba(37, 99, 235, 0.26)',
   previewStroke: '#3b82f6',
-  previewLabel: '#1e3a5f',
+  previewLabel: '#93c5fd',
   previewOverlay: '#1e40af',
 
   vertexHandle: '#2563eb',
