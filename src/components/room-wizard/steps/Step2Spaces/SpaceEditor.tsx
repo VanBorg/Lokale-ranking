@@ -3,10 +3,7 @@ import { Input } from '../../../ui/Input';
 import { Button } from '../../../ui/Button';
 import { generateId } from '../../../../utils/idGenerator';
 import type { SubSpace } from '../../../../types/room';
-import {
-  clampSubSpaceTopLeftNoOverlapCm,
-  defaultSubSpacePositionCm,
-} from '../../../../utils/subSpaceContainment';
+import { isZonePlacementValid } from '../../../../utils/subSpaceContainment';
 
 const getNextZoneName = (spaces: SubSpace[]): string => {
   let maxIndex = 0;
@@ -30,31 +27,20 @@ export const SpaceEditor = () => {
   const handleAdd = () => {
     const w = 100;
     const len = 100;
-    const name = getNextZoneName(subSpaces);
-    const initialPosition = defaultSubSpacePositionCm(
-      draft.shape,
-      draft.width,
-      draft.length,
-      w,
-      len,
-    );
-    const position = clampSubSpaceTopLeftNoOverlapCm(
-      draft.shape,
-      draft.width,
-      draft.length,
-      w,
-      len,
-      initialPosition.x,
-      initialPosition.y,
-      subSpaces,
-    );
     const newSpace: SubSpace = {
       id: generateId(),
-      name,
+      name: getNextZoneName(subSpaces),
       width: w,
       length: len,
-      position,
+      position: { x: 10, y: 10 },
     };
+    const valid = isZonePlacementValid(
+      newSpace.position.x, newSpace.position.y, newSpace.width, newSpace.length,
+      draft.vertices, subSpaces,
+    );
+    if (!valid) {
+      newSpace.position = { x: 0, y: 0 };
+    }
     addSubSpace(newSpace);
   };
 
@@ -65,7 +51,7 @@ export const SpaceEditor = () => {
           key={space.id}
           className="flex flex-col gap-2 rounded-lg border border-gray-200 p-3"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Input
               id={`space-name-${space.id}`}
               placeholder="bijv. Inloopkast"
@@ -75,7 +61,7 @@ export const SpaceEditor = () => {
             />
             <Button
               variant="danger"
-              className="ml-2 px-2! py-1! text-xs"
+              className="ml-2 shrink-0 px-2! py-1! text-xs"
               onClick={() => removeSubSpace(space.id)}
             >
               ✕
@@ -89,10 +75,7 @@ export const SpaceEditor = () => {
               type="number"
               min={10}
               value={space.width}
-              onChange={(e) => {
-                const w = parseInt(e.target.value, 10) || 0;
-                updateSubSpace(space.id, { width: w });
-              }}
+              onChange={(e) => updateSubSpace(space.id, { width: parseInt(e.target.value, 10) || 0 })}
             />
             <Input
               id={`space-l-${space.id}`}
@@ -101,10 +84,7 @@ export const SpaceEditor = () => {
               type="number"
               min={10}
               value={space.length}
-              onChange={(e) => {
-                const l = parseInt(e.target.value, 10) || 0;
-                updateSubSpace(space.id, { length: l });
-              }}
+              onChange={(e) => updateSubSpace(space.id, { length: parseInt(e.target.value, 10) || 0 })}
             />
           </div>
         </div>

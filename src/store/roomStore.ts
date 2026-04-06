@@ -1,22 +1,24 @@
 import { create } from 'zustand';
-import type { Room, RoomShape, RoomType, SubSpace, FloorType, CeilingType } from '../types/room';
+import type {
+  Room, RoomType, RoomPreset, RoomVertex, SubSpace, FloorType, CeilingType,
+} from '../types/room';
 import type { Wall, WallElement, WallDetail } from '../types/wall';
-import { generateWalls } from '../utils/wallGenerator';
-import { calcFloorArea, calcNetArea } from '../utils/geometry';
+import { generateWallsFromVertices } from '../utils/wallGenerator';
+import { calcNetArea, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../utils/geometry';
+import { calcPolygonArea, midpoint } from '../utils/geometry';
+import { createPresetVertices } from '../utils/presets';
 import { generateId } from '../utils/idGenerator';
 import { FLOOR_PLAN_CANVAS_H, FLOOR_PLAN_CANVAS_W } from '../constants/canvas';
-import { getRoomShapeBoundingSize, ROOM_CANVAS_SCALE } from '../utils/geometry';
 import { suggestNextRoomName } from '../utils/roomNaming';
-import { clampSubSpaceTopLeftNoOverlapCm } from '../utils/subSpaceContainment';
+import { isZonePlacementValid } from '../utils/subSpaceContainment';
 import { useProjectStore } from './projectStore';
 
 interface RoomDraft {
   id: string;
   name: string;
   roomType: RoomType;
-  shape: RoomShape;
-  width: number;
-  length: number;
+  preset: RoomPreset;
+  vertices: RoomVertex[];
   height: number;
   walls: Wall[];
   subSpaces: SubSpace[];
@@ -24,18 +26,20 @@ interface RoomDraft {
   ceilingType?: CeilingType;
   floorNotes: string;
   ceilingNotes: string;
-  customWallCount: number;
 }
 
 interface RoomStoreState {
   draft: RoomDraft;
   editingRoomId: string | null;
 
-  setShape: (shape: RoomShape) => void;
-  setDimensions: (width: number, length: number, height: number) => void;
+  loadPreset: (preset: RoomPreset) => void;
+  updateVertex: (index: number, pos: { x: number; y: number }) => void;
+  addVertex: (afterIndex: number) => void;
+  removeVertex: (index: number) => void;
+  setVertices: (vertices: RoomVertex[]) => void;
+  setHeight: (height: number) => void;
   setName: (name: string) => void;
   setRoomType: (roomType: RoomType) => void;
-  setCustomWallCount: (count: number) => void;
   setFloorType: (type: FloorType | undefined) => void;
   setCeilingType: (type: CeilingType | undefined) => void;
   setFloorNotes: (notes: string) => void;
@@ -58,68 +62,106 @@ interface RoomStoreState {
   finaliseRoom: () => Room;
 }
 
-const createEmptyDraft = (): RoomDraft => ({
-  id: generateId(),
-  name: '',
-  roomType: 'other',
-  shape: 'rectangle',
-  width: 300,
-  length: 400,
-  height: 260,
-  walls: generateWalls('rectangle', 300, 400, 260),
-  subSpaces: [],
-  floorType: undefined,
-  ceilingType: undefined,
-  floorNotes: '',
-  ceilingNotes: '',
-  customWallCount: 5,
-});
+const createEmptyDraft = (): RoomDraft => {
+  const preset: RoomPreset = 'rectangle';
+  const vertices = createPresetVertices(preset, 400, 300);
+  const height = 260;
+  return {
+    id: generateId(),
+    name: '',
+    roomType: 'other',
+    preset,
+    vertices,
+    height,
+    walls: generateWallsFromVertices(vertices, height),
+    subSpaces: [],
+    floorType: undefined,
+    ceilingType: undefined,
+    floorNotes: '',
+    ceilingNotes: '',
+  };
+};
 
 const recalcWallNetAreas = (walls: Wall[]): Wall[] =>
   walls.map((w) => ({ ...w, netArea: calcNetArea(w) }));
 
-const clampSubSpacesNoOverlap = (
-  shape: RoomShape,
-  width: number,
-  length: number,
+/** Re-validate sub-spaces after vertex/height change. Keeps valid ones, marks invalid. */
+const revalidateSubSpaces = (
   subSpaces: SubSpace[],
-): SubSpace[] => {
-  const next: SubSpace[] = [];
-  subSpaces.forEach((s) => {
-    const position = clampSubSpaceTopLeftNoOverlapCm(
-      shape,
-      width,
-      length,
-      s.width,
-      s.length,
-      s.position.x,
-      s.position.y,
-      next,
+  vertices: RoomVertex[],
+): SubSpace[] =>
+  subSpaces.filter((s) =>
+    isZonePlacementValid(
+      s.position.x, s.position.y, s.width, s.length,
+      vertices,
+      subSpaces,
       s.id,
-    );
-    next.push({ ...s, position });
-  });
-  return next;
-};
+    ),
+  );
 
 export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   draft: createEmptyDraft(),
   editingRoomId: null,
 
-  setShape: (shape) =>
+  loadPreset: (preset) =>
     set((state) => {
       const d = state.draft;
-      const walls = generateWalls(shape, d.width, d.length, d.height, d.customWallCount);
-      const subSpaces = clampSubSpacesNoOverlap(shape, d.width, d.length, d.subSpaces);
-      return { draft: { ...d, shape, walls, subSpaces } };
+      const bb = verticesBoundingBox(d.vertices);
+      const vertices = createPresetVertices(preset, bb.width || 400, bb.height || 300);
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      return { draft: { ...d, preset, vertices, walls, subSpaces } };
     }),
 
-  setDimensions: (width, length, height) =>
+  updateVertex: (index, pos) =>
     set((state) => {
       const d = state.draft;
-      const walls = generateWalls(d.shape, width, length, height, d.customWallCount);
-      const subSpaces = clampSubSpacesNoOverlap(d.shape, width, length, d.subSpaces);
-      return { draft: { ...d, width, length, height, walls, subSpaces } };
+      const snapped = { x: Math.round(pos.x / 10) * 10, y: Math.round(pos.y / 10) * 10 };
+      const vertices = d.vertices.map((v, i) => (i === index ? snapped : v));
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      return { draft: { ...d, vertices, walls, subSpaces } };
+    }),
+
+  addVertex: (afterIndex) =>
+    set((state) => {
+      const d = state.draft;
+      const n = d.vertices.length;
+      const a = d.vertices[afterIndex]!;
+      const b = d.vertices[(afterIndex + 1) % n]!;
+      const mp = midpoint(a, b);
+      const vertices = [
+        ...d.vertices.slice(0, afterIndex + 1),
+        mp,
+        ...d.vertices.slice(afterIndex + 1),
+      ];
+      const walls = generateWallsFromVertices(vertices, d.height);
+      return { draft: { ...d, vertices, walls } };
+    }),
+
+  removeVertex: (index) =>
+    set((state) => {
+      const d = state.draft;
+      if (d.vertices.length <= 3) return state;
+      const vertices = d.vertices.filter((_, i) => i !== index);
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      return { draft: { ...d, vertices, walls, subSpaces } };
+    }),
+
+  setVertices: (vertices) =>
+    set((state) => {
+      const d = state.draft;
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      return { draft: { ...d, vertices, walls, subSpaces } };
+    }),
+
+  setHeight: (height) =>
+    set((state) => {
+      const d = state.draft;
+      const walls = generateWallsFromVertices(d.vertices, height);
+      return { draft: { ...d, height, walls } };
     }),
 
   setName: (name) =>
@@ -128,18 +170,8 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   setRoomType: (roomType) =>
     set((state) => {
       const rooms = useProjectStore.getState().project.rooms;
-      const name = suggestNextRoomName(
-        roomType,
-        rooms,
-        state.editingRoomId,
-      );
+      const name = suggestNextRoomName(roomType, rooms, state.editingRoomId);
       return { draft: { ...state.draft, roomType, name } };
-    }),
-
-  setCustomWallCount: (count) =>
-    set((state) => {
-      const walls = generateWalls(state.draft.shape, state.draft.width, state.draft.length, state.draft.height, count);
-      return { draft: { ...state.draft, customWallCount: count, walls } };
     }),
 
   setFloorType: (type) =>
@@ -155,58 +187,24 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => ({ draft: { ...state.draft, ceilingNotes: notes } })),
 
   addSubSpace: (subSpace) =>
-    set((state) => {
-      const d = state.draft;
-      const position = clampSubSpaceTopLeftNoOverlapCm(
-        d.shape,
-        d.width,
-        d.length,
-        subSpace.width,
-        subSpace.length,
-        subSpace.position.x,
-        subSpace.position.y,
-        d.subSpaces,
-        subSpace.id,
-      );
-      return {
-        draft: {
-          ...d,
-          subSpaces: [...d.subSpaces, { ...subSpace, position }],
-        },
-      };
-    }),
+    set((state) => ({
+      draft: { ...state.draft, subSpaces: [...state.draft.subSpaces, subSpace] },
+    })),
 
   removeSubSpace: (id) =>
     set((state) => ({
-      draft: {
-        ...state.draft,
-        subSpaces: state.draft.subSpaces.filter((s) => s.id !== id),
-      },
+      draft: { ...state.draft, subSpaces: state.draft.subSpaces.filter((s) => s.id !== id) },
     })),
 
   updateSubSpace: (id, updates) =>
-    set((state) => {
-      const d = state.draft;
-      const subSpaces = d.subSpaces.map((s) => {
-        if (s.id !== id) return s;
-        const next = { ...s, ...updates };
-        return {
-          ...next,
-          position: clampSubSpaceTopLeftNoOverlapCm(
-            d.shape,
-            d.width,
-            d.length,
-            next.width,
-            next.length,
-            next.position.x,
-            next.position.y,
-            d.subSpaces,
-            next.id,
-          ),
-        };
-      });
-      return { draft: { ...d, subSpaces } };
-    }),
+    set((state) => ({
+      draft: {
+        ...state.draft,
+        subSpaces: state.draft.subSpaces.map((s) =>
+          s.id === id ? { ...s, ...updates } : s,
+        ),
+      },
+    })),
 
   addWallElement: (wallId, element) =>
     set((state) => {
@@ -220,12 +218,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => {
       const walls = state.draft.walls.map((w) =>
         w.id === wallId
-          ? {
-              ...w,
-              elements: w.elements.map((e) =>
-                e.id === elementId ? { ...e, ...updates } : e,
-              ),
-            }
+          ? { ...w, elements: w.elements.map((e) => (e.id === elementId ? { ...e, ...updates } : e)) }
           : w,
       );
       return { draft: { ...state.draft, walls: recalcWallNetAreas(walls) } };
@@ -278,9 +271,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       draft: {
         ...state.draft,
         walls: state.draft.walls.map((w) =>
-          w.id === wallId
-            ? { ...w, photos: w.photos.filter((_, i) => i !== index) }
-            : w,
+          w.id === wallId ? { ...w, photos: w.photos.filter((_, i) => i !== index) } : w,
         ),
       },
     })),
@@ -291,17 +282,15 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         id: room.id,
         name: room.name,
         roomType: room.roomType,
-        shape: room.shape,
-        width: room.width,
-        length: room.length,
+        preset: room.preset,
+        vertices: room.vertices,
         height: room.height,
         walls: room.walls,
-        subSpaces: clampSubSpacesNoOverlap(room.shape, room.width, room.length, room.subSpaces),
+        subSpaces: room.subSpaces,
         floorType: room.floor.type,
         ceilingType: room.ceiling.type,
         floorNotes: room.floor.notes ?? '',
         ceilingNotes: room.ceiling.notes ?? '',
-        customWallCount: room.walls.length,
       },
       editingRoomId: room.id,
     }),
@@ -315,17 +304,14 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
 
   finaliseRoom: () => {
     const { draft, editingRoomId } = get();
-    const floorArea = calcFloorArea(draft.width, draft.length);
     const existingRooms = useProjectStore.getState().project.rooms;
+    const bb = verticesBoundingBox(draft.vertices);
+    const w = bb.width * ROOM_CANVAS_SCALE;
+    const h = bb.height * ROOM_CANVAS_SCALE;
+    const floorArea = calcPolygonArea(draft.vertices);
 
     let position = { x: 50, y: 50 };
     if (!editingRoomId && existingRooms.length === 0) {
-      const { w, h } = getRoomShapeBoundingSize(
-        draft.shape,
-        draft.width,
-        draft.length,
-        ROOM_CANVAS_SCALE,
-      );
       position = {
         x: FLOOR_PLAN_CANVAS_W / 2 - w / 2,
         y: FLOOR_PLAN_CANVAS_H / 2 - h / 2,
@@ -333,13 +319,8 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     } else if (!editingRoomId && existingRooms.length > 0) {
       const maxX = Math.max(
         ...existingRooms.map((r) => {
-          const { w } = getRoomShapeBoundingSize(
-            r.shape,
-            r.width,
-            r.length,
-            ROOM_CANVAS_SCALE,
-          );
-          return r.position.x + w;
+          const rbb = verticesBoundingBox(r.vertices);
+          return r.position.x + rbb.width * ROOM_CANVAS_SCALE;
         }),
       );
       position = { x: maxX + 30, y: 50 };
@@ -348,16 +329,15 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       if (existing) position = existing.position;
     }
 
-    const subSpaces = clampSubSpacesNoOverlap(
-      draft.shape,
-      draft.width,
-      draft.length,
-      draft.subSpaces,
-    );
-
     return {
-      ...draft,
-      subSpaces,
+      id: draft.id,
+      name: draft.name,
+      roomType: draft.roomType,
+      preset: draft.preset,
+      vertices: draft.vertices,
+      height: draft.height,
+      walls: draft.walls,
+      subSpaces: draft.subSpaces,
       floor: { area: floorArea, type: draft.floorType, notes: draft.floorNotes || undefined },
       ceiling: { area: floorArea, type: draft.ceilingType, notes: draft.ceilingNotes || undefined },
       position,

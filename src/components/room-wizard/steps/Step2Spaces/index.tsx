@@ -7,7 +7,7 @@ export const Step2Spaces = () => (
   <StepContainer>
     <StepHeader
       title="Zones in de kamer"
-      description="Stap 1 heeft de buitenkant van de kamer vastgelegd. Hier plaats je alleen sub-ruimtes (zones) binnen die kamer op de plattegrond."
+      description="Stap 1 heeft de buitenkant van de kamer vastgelegd. Hier plaats je sub-ruimtes (zones) binnen die kamer. Sleep ze op de plattegrond links naar de juiste plek."
     />
     <RoomOutlineSummary />
     <div className="mt-1 border-t border-gray-100 pt-3">

@@ -7,22 +7,19 @@ export const useWizardValidation = () => {
 
   const step0Valid =
     draft.name.trim().length > 0 &&
-    draft.width > 0 &&
-    draft.length > 0 &&
+    draft.vertices.length >= 3 &&
     draft.height > 0;
-
-  const step3Valid = draft.walls.length > 0;
 
   const canSave = step0Valid;
 
   const canAdvance = (): { ok: boolean; message?: string } => {
     if (activeStep === 0) {
       if (!draft.name.trim()) return { ok: false, message: 'Vul een kamernaam in.' };
-      if (draft.width <= 0 || draft.length <= 0 || draft.height <= 0)
-        return { ok: false, message: 'Alle afmetingen moeten groter dan 0 zijn.' };
+      if (draft.vertices.length < 3) return { ok: false, message: 'De kamer heeft minimaal 3 hoekpunten nodig.' };
+      if (draft.height <= 0) return { ok: false, message: 'Hoogte moet groter dan 0 zijn.' };
     }
     return { ok: true };
   };
 
-  return { canAdvance, canSave, step0Valid, step3Valid };
+  return { canAdvance, canSave, step0Valid };
 };

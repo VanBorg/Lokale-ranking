@@ -1,7 +1,7 @@
 import { useRoomStore } from '../../../../store/roomStore';
-import { cmToM, calcFloorArea } from '../../../../utils/geometry';
+import { cmToM, calcPolygonArea, verticesBoundingBox } from '../../../../utils/geometry';
 import { roomTypeLabels } from '../../../../utils/roomNaming';
-import { ROOM_SHAPE_LABELS } from '../../../../utils/shapeLabels';
+import { PRESET_LABELS } from '../../../../utils/presets';
 
 const floorTypeLabels: Record<string, string> = {
   tiles: 'Tegels', wood: 'Hout', laminate: 'Laminaat',
@@ -15,7 +15,8 @@ const ceilingTypeLabels: Record<string, string> = {
 
 export const RoomSummary = () => {
   const draft = useRoomStore((s) => s.draft);
-  const floorArea = calcFloorArea(draft.width, draft.length);
+  const floorArea = calcPolygonArea(draft.vertices);
+  const bb = verticesBoundingBox(draft.vertices);
   const totalNetWall = draft.walls.reduce((sum, w) => sum + w.netArea, 0);
   const totalElements = draft.walls.reduce((sum, w) => sum + w.elements.length, 0);
   const totalPhotos = draft.walls.reduce((sum, w) => sum + w.photos.length, 0);
@@ -28,14 +29,14 @@ export const RoomSummary = () => {
         </h3>
         <p className="text-sm text-gray-600">
           {roomTypeLabels[draft.roomType] ?? draft.roomType} —{' '}
-          {ROOM_SHAPE_LABELS[draft.shape] ?? draft.shape}
+          {PRESET_LABELS[draft.preset].label}
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center">
-        <Stat label="Breedte" value={`${cmToM(draft.width)} m`} />
-        <Stat label="Lengte" value={`${cmToM(draft.length)} m`} />
-        <Stat label="Hoogte" value={`${cmToM(draft.height)} m`} />
+        <Stat label="Breedte" value={`${cmToM(bb.width).toFixed(2)} m`} />
+        <Stat label="Lengte" value={`${cmToM(bb.height).toFixed(2)} m`} />
+        <Stat label="Hoogte" value={`${cmToM(draft.height).toFixed(2)} m`} />
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-center">
@@ -47,11 +48,11 @@ export const RoomSummary = () => {
         <div className="grid grid-cols-2 gap-2 text-center">
           <Stat
             label="Vloer"
-            value={draft.floorType ? floorTypeLabels[draft.floorType] ?? draft.floorType : '—'}
+            value={draft.floorType ? (floorTypeLabels[draft.floorType] ?? draft.floorType) : '—'}
           />
           <Stat
             label="Plafond"
-            value={draft.ceilingType ? ceilingTypeLabels[draft.ceilingType] ?? draft.ceilingType : '—'}
+            value={draft.ceilingType ? (ceilingTypeLabels[draft.ceilingType] ?? draft.ceilingType) : '—'}
           />
         </div>
       )}

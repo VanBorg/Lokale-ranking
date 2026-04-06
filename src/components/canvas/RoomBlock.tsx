@@ -4,7 +4,7 @@ import { useDragRoom } from '../../hooks/useDragRoom';
 import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
 import { useProjectStore } from '../../store/projectStore';
-import { roomShapePoints, ROOM_CANVAS_SCALE } from '../../utils/geometry';
+import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
 
 interface RoomBlockProps {
   room: Room;
@@ -17,12 +17,8 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
   const loadRoom = useRoomStore((s) => s.loadRoom);
   const removeRoom = useProjectStore((s) => s.removeRoom);
 
-  const points = roomShapePoints(
-    room.shape,
-    room.width,
-    room.length,
-    ROOM_CANVAS_SCALE,
-  );
+  const points = verticesToKonvaPoints(room.vertices, ROOM_CANVAS_SCALE);
+  const bb = verticesBoundingBox(room.vertices);
 
   const handleDblClick = () => {
     loadRoom(room);
@@ -47,23 +43,10 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
       onContextMenu={handleContextMenu}
       opacity={dimmed ? 0.4 : 1}
     >
-      <Line
-        points={points}
-        closed
-        fill="#fff7ed"
-        stroke="#f97316"
-        strokeWidth={2}
-      />
+      <Line points={points} closed fill="#fff7ed" stroke="#f97316" strokeWidth={2} />
+      <Text text={room.name || room.roomType} x={8} y={8} fontSize={14} fontStyle="bold" fill="#9a3412" />
       <Text
-        text={room.name || room.roomType}
-        x={8}
-        y={8}
-        fontSize={14}
-        fontStyle="bold"
-        fill="#9a3412"
-      />
-      <Text
-        text={`${room.width}×${room.length} cm`}
+        text={`${Math.round(bb.width)}×${Math.round(bb.height)} cm`}
         x={8}
         y={26}
         fontSize={11}

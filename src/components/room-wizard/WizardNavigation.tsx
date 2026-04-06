@@ -5,7 +5,7 @@ import { useWizardValidation } from '../../hooks/useWizardValidation';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 
-const STEP_LABELS = ['Vorm', 'Zones', 'Vloer & Plafond', 'Wanden', 'Overzicht'];
+const STEP_LABELS = ['Vorm', 'Zones', 'Wanden', 'Overzicht'];
 const TOTAL = STEP_LABELS.length;
 
 export const WizardNavigation = () => {

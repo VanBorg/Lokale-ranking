@@ -1,6 +1,24 @@
 import type { Wall } from './wall';
 
-export type RoomShape = 'rectangle' | 'l-shape' | 'custom';
+/** One corner of the room polygon (cm, relative to origin 0,0 = top-left of bounding box). */
+export interface RoomVertex {
+  x: number;
+  y: number;
+}
+
+/**
+ * Preset shapes common in Dutch housing.
+ * After choosing, the user can drag any vertex freely — including making diagonal walls.
+ */
+export type RoomPreset =
+  | 'rectangle'
+  | 'l-shape'
+  | 'l-shape-mirror'
+  | 'u-shape'
+  | 't-shape'
+  | 'trapezoid'
+  | 'pentagon'
+  | 'hexagon';
 
 export type RoomType =
   | 'bathroom'
@@ -43,13 +61,17 @@ export interface Room {
   id: string;
   name: string;
   roomType: RoomType;
-  shape: RoomShape;
-  width: number;
-  length: number;
+  /** Which preset was the starting point. */
+  preset: RoomPreset;
+  /** The room shape as a closed polygon (clockwise, cm). */
+  vertices: RoomVertex[];
+  /** Ceiling height in cm. */
   height: number;
+  /** One wall per edge: vertices[i] → vertices[(i+1) % n]. */
   walls: Wall[];
   subSpaces: SubSpace[];
   floor: FloorSpec;
   ceiling: CeilingSpec;
+  /** Position on the project floor-plan canvas (Konva world coords). */
   position: { x: number; y: number };
 }

@@ -1,7 +1,7 @@
 import type { Wall } from '../types/wall';
-import type { RoomShape } from '../types/room';
+import type { RoomVertex } from '../types/room';
 
-/** Scale from cm to canvas pixels (floor plan). Shared by preview, blocks, and placement. */
+/** Pixels per cm on the floor-plan canvas. */
 export const ROOM_CANVAS_SCALE = 0.72;
 
 export const cmToM = (cm: number): number => cm / 100;
@@ -17,58 +17,58 @@ export const calcNetArea = (wall: Wall): number => {
   return parseFloat(Math.max(0, wall.surfaceArea - elementsArea).toFixed(2));
 };
 
-export const calcFloorArea = (widthCm: number, lengthCm: number): number =>
-  parseFloat((cmToM(widthCm) * cmToM(lengthCm)).toFixed(2));
+/** Vertices (cm) → flat Konva points [x, y, x, y, …] in canvas pixels. */
+export function verticesToKonvaPoints(vertices: RoomVertex[], scale: number): number[] {
+  return vertices.flatMap((v) => [v.x * scale, v.y * scale]);
+}
 
-/**
- * Returns a flat array of [x,y, x,y, ...] points describing the room outline,
- * scaled by the given factor. Used by both RoomBlock and RoomPreview.
- */
-export const roomShapePoints = (
-  shape: RoomShape,
-  width: number,
-  length: number,
-  scale: number,
-): number[] => {
-  const w = width * scale;
-  const l = length * scale;
-
-  if (shape === 'l-shape') {
-    const halfW = w / 2;
-    const halfL = l / 2;
-    return [
-      0, 0,
-      w, 0,
-      w, halfL,
-      halfW, halfL,
-      halfW, l,
-      0, l,
-    ];
+/** Axis-aligned bounding box of a vertex array, in cm. */
+export function verticesBoundingBox(vertices: RoomVertex[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+} {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const v of vertices) {
+    if (v.x < minX) minX = v.x;
+    if (v.y < minY) minY = v.y;
+    if (v.x > maxX) maxX = v.x;
+    if (v.y > maxY) maxY = v.y;
   }
+  return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
 
-  // rectangle & custom fallback
-  return [0, 0, w, 0, w, l, 0, l];
-};
-
-/** Axis-aligned bounding size of the room shape in canvas coordinates. */
-export const getRoomShapeBoundingSize = (
-  shape: RoomShape,
-  width: number,
-  length: number,
-  scale: number,
-): { w: number; h: number } => {
-  const pts = roomShapePoints(shape, width, length, scale);
-  let minX = pts[0]!;
-  let minY = pts[1]!;
-  let maxX = pts[0]!;
-  let maxY = pts[1]!;
-  for (let i = 0; i < pts.length; i += 2) {
-    const x = pts[i]!;
-    const y = pts[i + 1]!;
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x);
-    maxY = Math.max(maxY, y);
+/** Floor area of a polygon via the Shoelace formula, returned in m². */
+export function calcPolygonArea(vertices: RoomVertex[]): number {
+  const n = vertices.length;
+  let area = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += vertices[i]!.x * vertices[j]!.y;
+    area -= vertices[j]!.x * vertices[i]!.y;
   }
-  return { w: maxX - minX, h: maxY - minY };
-};
+  return parseFloat((Math.abs(area) / 2 / 10000).toFixed(2));
+}
+
+/** Length of an edge between two vertices in cm. Works for diagonal edges too. */
+export function edgeLength(a: RoomVertex, b: RoomVertex): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return Math.round(Math.sqrt(dx * dx + dy * dy));
+}
+
+/** Midpoint between two vertices (used for "add vertex" on an edge). */
+export function midpoint(a: RoomVertex, b: RoomVertex): RoomVertex {
+  return {
+    x: Math.round((a.x + b.x) / 2),
+    y: Math.round((a.y + b.y) / 2),
+  };
+}
+
+/** Gross wall surface area in m². */
+export function calcSurfaceAreaWall(widthCm: number, heightCm: number): number {
+  return calcSurfaceArea(widthCm, heightCm);
+}

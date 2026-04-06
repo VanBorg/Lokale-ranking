@@ -1,251 +1,147 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type Konva from 'konva';
-import { Group, Line, Rect, Text } from 'react-konva';
-import type { RoomShape, SubSpace } from '../../types/room';
-import {
-  getRoomShapeBoundingSize,
-  roomShapePoints,
-  ROOM_CANVAS_SCALE,
-} from '../../utils/geometry';
-import {
-  clampSubSpaceTopLeftCm,
-  clampSubSpaceTopLeftNoOverlapCm,
-  isSubSpacePlacementValid,
-} from '../../utils/subSpaceContainment';
+import { Group, Line, Rect, Circle, Text } from 'react-konva';
+import type { RoomVertex, SubSpace } from '../../types/room';
+import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
+import { isZonePlacementValid } from '../../utils/subSpaceContainment';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
 import { WIZARD_CANVAS_OVERLAY } from '../../utils/wizardCanvas';
 
 interface RoomPreviewProps {
-  /** World coordinates (top-left of bounding box), usually viewport-centred by the parent. */
   x: number;
   y: number;
-  draft: {
-    name: string;
-    roomType: string;
-    width: number;
-    length: number;
-    shape: RoomShape;
-    subSpaces: SubSpace[];
-  };
-  /** Per wizard step: what the map is for (shape vs zones vs read-only). */
+  vertices: RoomVertex[];
+  subSpaces: SubSpace[];
+  name: string;
   canvasMode: WizardCanvasMode;
-  onSubSpacePositionChange?: (
-    id: string,
-    position: { x: number; y: number },
-  ) => void;
+  onVertexDrag?: (index: number, pos: { x: number; y: number }) => void;
+  onZoneDrag?: (id: string, pos: { x: number; y: number }) => void;
 }
 
 export const RoomPreview = ({
-  x,
-  y,
-  draft,
-  canvasMode,
-  onSubSpacePositionChange,
+  x, y, vertices, subSpaces, name, canvasMode, onVertexDrag, onZoneDrag,
 }: RoomPreviewProps) => {
-  const interactiveSubSpaces = canvasMode === 'sub-space-layout';
-  const overlayLabel = WIZARD_CANVAS_OVERLAY[canvasMode];
   const groupRef = useRef<Konva.Group | null>(null);
-  const points = roomShapePoints(
-    draft.shape,
-    draft.width,
-    draft.length,
-    ROOM_CANVAS_SCALE,
-  );
+  const [invalidZones, setInvalidZones] = useState<Set<string>>(new Set());
+  const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
 
-  const { h: roomBoxH } = getRoomShapeBoundingSize(
-    draft.shape,
-    draft.width,
-    draft.length,
-    ROOM_CANVAS_SCALE,
-  );
+  const isOutlineMode = canvasMode === 'room-outline';
+  const isZoneMode = canvasMode === 'sub-space-layout';
+  const isDimmed = canvasMode === 'walls-preview' || canvasMode === 'overview-preview';
 
-  const groupOpacity =
-    canvasMode === 'walls-preview' ||
-    canvasMode === 'overview-preview' ||
-    canvasMode === 'floor-ceiling-preview'
-      ? 0.45
-      : 0.55;
+  const points = verticesToKonvaPoints(vertices, ROOM_CANVAS_SCALE);
+  const bb = verticesBoundingBox(vertices);
+  const overlayLabel = WIZARD_CANVAS_OVERLAY[canvasMode];
 
-  const roomOutlineSolid = canvasMode === 'sub-space-layout';
-
-  const clampSubSpaceCanvasPos = (
-    pos: { x: number; y: number },
-    shape: RoomShape,
-    roomWidthCm: number,
-    roomLengthCm: number,
-    subWcm: number,
-    subLcm: number,
-  ): { x: number; y: number } => {
-    const leftCm = pos.x / ROOM_CANVAS_SCALE;
-    const topCm = pos.y / ROOM_CANVAS_SCALE;
-    const c = clampSubSpaceTopLeftCm(
-      shape,
-      roomWidthCm,
-      roomLengthCm,
-      subWcm,
-      subLcm,
-      leftCm,
-      topCm,
-    );
-    return { x: c.x * ROOM_CANVAS_SCALE, y: c.y * ROOM_CANVAS_SCALE };
-  };
+  const snap10 = (v: number) => Math.round(v / 10) * 10;
 
   return (
-    <Group ref={groupRef} x={x} y={y} opacity={groupOpacity} listening>
+    <Group ref={groupRef} x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
+      {/* Room outline */}
       <Line
         listening={false}
         points={points}
         closed
         fill="#fef3c7"
         stroke="#f59e0b"
-        strokeWidth={roomOutlineSolid ? 3 : 2.5}
-        dash={roomOutlineSolid ? undefined : [8, 4]}
+        strokeWidth={isOutlineMode ? 2.5 : 3}
+        dash={isOutlineMode ? [8, 4] : undefined}
       />
 
-      {draft.subSpaces.map((s) => (
-        <Rect
-          key={s.id}
-          x={s.position.x * ROOM_CANVAS_SCALE}
-          y={s.position.y * ROOM_CANVAS_SCALE}
-          width={s.width * ROOM_CANVAS_SCALE}
-          height={s.length * ROOM_CANVAS_SCALE}
-          fill="#fde68a"
-          stroke="#d97706"
-          strokeWidth={1}
-          hitStrokeWidth={20}
-          dash={[4, 2]}
-          opacity={interactiveSubSpaces ? 0.85 : 0.55}
-          listening={interactiveSubSpaces}
-          draggable={interactiveSubSpaces}
-          cursor={interactiveSubSpaces ? 'move' : 'default'}
-          onDragStart={(e) => {
-            if (!interactiveSubSpaces) return;
-            e.cancelBubble = true;
-            (e.target as { dragStartCm?: { x: number; y: number } }).dragStartCm = {
-              x: s.position.x,
-              y: s.position.y,
-            };
-          }}
-          dragBoundFunc={(pos) =>
-            (() => {
-              const stage = groupRef.current?.getStage?.();
-              const stageScaleX = stage?.scaleX?.() ?? null;
-              const stageScaleY = stage?.scaleY?.() ?? null;
-              const groupAbs = groupRef.current?.getAbsolutePosition?.() ?? null;
-              const localX =
-                groupAbs && stageScaleX
-                  ? (pos.x - groupAbs.x) / stageScaleX
-                  : null;
-              const localY =
-                groupAbs && stageScaleY
-                  ? (pos.y - groupAbs.y) / stageScaleY
-                  : null;
-              const nextLocal =
-                localX !== null && localY !== null
-                  ? clampSubSpaceCanvasPos(
-                      { x: localX, y: localY },
-                      draft.shape,
-                      draft.width,
-                      draft.length,
-                      s.width,
-                      s.length,
-                    )
-                  : clampSubSpaceCanvasPos(
-                      pos,
-                      draft.shape,
-                      draft.width,
-                      draft.length,
-                      s.width,
-                      s.length,
-                    );
-              const next =
-                groupAbs && stageScaleX && stageScaleY
-                  ? {
-                      x: groupAbs.x + nextLocal.x * stageScaleX,
-                      y: groupAbs.y + nextLocal.y * stageScaleY,
-                    }
-                  : nextLocal;
-              return next;
-            })()
-          }
+      {/* Vertex drag handles — only in room-outline mode */}
+      {isOutlineMode && vertices.map((v, i) => (
+        <Circle
+          key={i}
+          x={v.x * ROOM_CANVAS_SCALE}
+          y={v.y * ROOM_CANVAS_SCALE}
+          radius={7}
+          fill="#f97316"
+          stroke="white"
+          strokeWidth={2}
+          draggable
           onDragEnd={(e) => {
-            if (!interactiveSubSpaces || !onSubSpacePositionChange) return;
-            const n = e.target;
-            const stage = groupRef.current?.getStage?.();
-            const stageScaleX = stage?.scaleX?.() ?? 1;
-            const stageScaleY = stage?.scaleY?.() ?? 1;
-            const groupAbs = groupRef.current?.getAbsolutePosition?.() ?? { x: 0, y: 0 };
-            const absPos = (n as { getAbsolutePosition?: () => { x: number; y: number } })
-              .getAbsolutePosition?.();
-            const absX = absPos?.x ?? n.x();
-            const absY = absPos?.y ?? n.y();
-            const localX = (absX - groupAbs.x) / stageScaleX;
-            const localY = (absY - groupAbs.y) / stageScaleY;
-            const rawX = localX / ROOM_CANVAS_SCALE;
-            const rawY = localY / ROOM_CANVAS_SCALE;
-            const snapped = clampSubSpaceTopLeftNoOverlapCm(
-              draft.shape,
-              draft.width,
-              draft.length,
-              s.width,
-              s.length,
-              rawX,
-              rawY,
-              draft.subSpaces,
-              s.id,
-            );
-            const valid = isSubSpacePlacementValid(
-              draft.shape,
-              draft.width,
-              draft.length,
-              s.width,
-              s.length,
-              snapped.x,
-              snapped.y,
-              draft.subSpaces,
-              s.id,
-            );
-            if (!valid) {
-              const start = (n as { dragStartCm?: { x: number; y: number } })
-                .dragStartCm;
-              if (start) {
-                n.position({
-                  x: start.x * ROOM_CANVAS_SCALE,
-                  y: start.y * ROOM_CANVAS_SCALE,
-                });
-                onSubSpacePositionChange(s.id, start);
-                return;
-              }
-            }
-            onSubSpacePositionChange(s.id, snapped);
+            const stage = groupRef.current?.getStage();
+            const scaleX = stage?.scaleX() ?? 1;
+            const scaleY = stage?.scaleY() ?? 1;
+            const groupAbs = groupRef.current?.getAbsolutePosition() ?? { x: 0, y: 0 };
+            const absPos = e.target.getAbsolutePosition();
+            const localX = (absPos.x - groupAbs.x) / scaleX;
+            const localY = (absPos.y - groupAbs.y) / scaleY;
+            const cmX = snap10(localX / ROOM_CANVAS_SCALE);
+            const cmY = snap10(localY / ROOM_CANVAS_SCALE);
+            onVertexDrag?.(i, { x: cmX, y: cmY });
           }}
         />
       ))}
 
+      {/* Zone rectangles — only in sub-space-layout mode */}
+      {subSpaces.map((s) => {
+        const isInvalid = invalidZones.has(s.id);
+        return (
+          <Rect
+            key={s.id}
+            x={s.position.x * ROOM_CANVAS_SCALE}
+            y={s.position.y * ROOM_CANVAS_SCALE}
+            width={s.width * ROOM_CANVAS_SCALE}
+            height={s.length * ROOM_CANVAS_SCALE}
+            fill="#fde68a"
+            stroke={isInvalid ? '#ef4444' : '#d97706'}
+            strokeWidth={isInvalid ? 2 : 1}
+            opacity={isZoneMode ? 0.85 : 0.5}
+            listening={isZoneMode}
+            draggable={isZoneMode}
+            onDragStart={() => {
+              prevPositions.current.set(s.id, { ...s.position });
+            }}
+            onDragEnd={(e) => {
+              if (!isZoneMode || !onZoneDrag) return;
+              const stage = groupRef.current?.getStage();
+              const scaleX = stage?.scaleX() ?? 1;
+              const scaleY = stage?.scaleY() ?? 1;
+              const groupAbs = groupRef.current?.getAbsolutePosition() ?? { x: 0, y: 0 };
+              const absPos = e.target.getAbsolutePosition();
+              const localX = (absPos.x - groupAbs.x) / scaleX;
+              const localY = (absPos.y - groupAbs.y) / scaleY;
+              const cmX = localX / ROOM_CANVAS_SCALE;
+              const cmY = localY / ROOM_CANVAS_SCALE;
+
+              const valid = isZonePlacementValid(cmX, cmY, s.width, s.length, vertices, subSpaces, s.id);
+              if (valid) {
+                setInvalidZones((prev) => { const n = new Set(prev); n.delete(s.id); return n; });
+                onZoneDrag(s.id, { x: cmX, y: cmY });
+              } else {
+                const prev = prevPositions.current.get(s.id) ?? s.position;
+                e.target.position({
+                  x: prev.x * ROOM_CANVAS_SCALE,
+                  y: prev.y * ROOM_CANVAS_SCALE,
+                });
+                setInvalidZones((p) => new Set(p).add(s.id));
+                setTimeout(() => setInvalidZones((p) => { const n = new Set(p); n.delete(s.id); return n; }), 800);
+              }
+            }}
+          />
+        );
+      })}
+
+      {/* Name label */}
       <Text
         listening={false}
-        text={draft.name || 'Nieuwe kamer'}
+        text={name || 'Nieuwe kamer'}
         x={8}
         y={8}
         fontSize={15}
         fontStyle="italic"
         fill="#92400e"
       />
-      <Text
-        listening={false}
-        text={`${draft.width}×${draft.length} cm`}
-        x={8}
-        y={24}
-        fontSize={12}
-        fill="#b45309"
-      />
+
+      {/* Overlay step label */}
       {overlayLabel && (
         <Text
           listening={false}
           text={overlayLabel}
           x={8}
-          y={Math.max(40, roomBoxH - 36)}
-          width={Math.max(120, draft.width * ROOM_CANVAS_SCALE - 16)}
+          y={Math.max(40, bb.height * ROOM_CANVAS_SCALE - 36)}
+          width={Math.max(120, bb.width * ROOM_CANVAS_SCALE - 16)}
           fontSize={11}
           fill="#9a3412"
         />

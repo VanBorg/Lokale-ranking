@@ -21,7 +21,7 @@ interface UiState {
   resetUi: () => void;
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 export const useUiStore = create<UiState>()((set) => ({
   activeStep: 0,
