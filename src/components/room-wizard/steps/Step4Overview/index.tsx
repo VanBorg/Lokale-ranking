@@ -7,7 +7,7 @@ export const Step4Overview = () => (
   <StepContainer>
     <StepHeader
       title="Overzicht & Bevestiging"
-      description="Controleer alle gegevens en sla de kamer op."
+      description="Controleer alle gegevens en sla de kamer op. De plattegrond links toont dezelfde kamer als referentie (geen bewerking meer)."
     />
     <RoomSummary />
     <SaveActions />

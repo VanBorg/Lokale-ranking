@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type Konva from 'konva';
+import { DEFAULT_CANVAS_ZOOM } from '../constants/canvas';
 import { useUiStore } from '../store/uiStore';
 
 export const useRoomCanvas = () => {
@@ -32,7 +33,7 @@ export const useRoomCanvas = () => {
   );
 
   const resetView = useCallback(() => {
-    setZoom(1);
+    setZoom(DEFAULT_CANVAS_ZOOM);
     setPan({ x: 0, y: 0 });
   }, [setZoom, setPan]);
 

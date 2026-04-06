@@ -11,7 +11,7 @@ export const Step3Walls = () => (
   <StepContainer>
     <StepHeader
       title="Wanden"
-      description="Navigeer door elke wand en voeg elementen en details toe."
+      description="De plattegrond links blijft je volledige kamer tonen. Hieronder kies je per wand elementen en details — de kaart is ter referentie, het echte werk gebeurt in dit paneel."
     />
     <WallCarousel />
     <WallCanvas />

@@ -3,20 +3,57 @@ import { Input } from '../../../ui/Input';
 import { Button } from '../../../ui/Button';
 import { generateId } from '../../../../utils/idGenerator';
 import type { SubSpace } from '../../../../types/room';
+import {
+  clampSubSpaceTopLeftNoOverlapCm,
+  defaultSubSpacePositionCm,
+} from '../../../../utils/subSpaceContainment';
+
+const getNextZoneName = (spaces: SubSpace[]): string => {
+  let maxIndex = 0;
+  spaces.forEach((space) => {
+    const match = /^Zone(\d+)$/i.exec(space.name.trim());
+    if (match) {
+      const n = parseInt(match[1]!, 10);
+      if (n > maxIndex) maxIndex = n;
+    }
+  });
+  return `Zone${maxIndex + 1}`;
+};
 
 export const SpaceEditor = () => {
-  const subSpaces = useRoomStore((s) => s.draft.subSpaces);
+  const draft = useRoomStore((s) => s.draft);
+  const subSpaces = draft.subSpaces;
   const addSubSpace = useRoomStore((s) => s.addSubSpace);
   const removeSubSpace = useRoomStore((s) => s.removeSubSpace);
   const updateSubSpace = useRoomStore((s) => s.updateSubSpace);
 
   const handleAdd = () => {
+    const w = 100;
+    const len = 100;
+    const name = getNextZoneName(subSpaces);
+    const initialPosition = defaultSubSpacePositionCm(
+      draft.shape,
+      draft.width,
+      draft.length,
+      w,
+      len,
+    );
+    const position = clampSubSpaceTopLeftNoOverlapCm(
+      draft.shape,
+      draft.width,
+      draft.length,
+      w,
+      len,
+      initialPosition.x,
+      initialPosition.y,
+      subSpaces,
+    );
     const newSpace: SubSpace = {
       id: generateId(),
-      name: '',
-      width: 100,
-      length: 100,
-      position: { x: 0, y: 0 },
+      name,
+      width: w,
+      length: len,
+      position,
     };
     addSubSpace(newSpace);
   };
@@ -34,11 +71,11 @@ export const SpaceEditor = () => {
               placeholder="bijv. Inloopkast"
               value={space.name}
               onChange={(e) => updateSubSpace(space.id, { name: e.target.value })}
-              className="!text-sm"
+              className="text-sm!"
             />
             <Button
               variant="danger"
-              className="ml-2 !px-2 !py-1 text-xs"
+              className="ml-2 px-2! py-1! text-xs"
               onClick={() => removeSubSpace(space.id)}
             >
               ✕
@@ -52,9 +89,10 @@ export const SpaceEditor = () => {
               type="number"
               min={10}
               value={space.width}
-              onChange={(e) =>
-                updateSubSpace(space.id, { width: parseInt(e.target.value, 10) || 0 })
-              }
+              onChange={(e) => {
+                const w = parseInt(e.target.value, 10) || 0;
+                updateSubSpace(space.id, { width: w });
+              }}
             />
             <Input
               id={`space-l-${space.id}`}
@@ -63,15 +101,16 @@ export const SpaceEditor = () => {
               type="number"
               min={10}
               value={space.length}
-              onChange={(e) =>
-                updateSubSpace(space.id, { length: parseInt(e.target.value, 10) || 0 })
-              }
+              onChange={(e) => {
+                const l = parseInt(e.target.value, 10) || 0;
+                updateSubSpace(space.id, { length: l });
+              }}
             />
           </div>
         </div>
       ))}
       <Button variant="secondary" onClick={handleAdd}>
-        + Sub-ruimte toevoegen
+        + Zone toevoegen
       </Button>
     </div>
   );

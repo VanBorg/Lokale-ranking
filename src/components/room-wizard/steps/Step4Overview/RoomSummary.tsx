@@ -1,25 +1,7 @@
 import { useRoomStore } from '../../../../store/roomStore';
 import { cmToM, calcFloorArea } from '../../../../utils/geometry';
-
-const roomTypeLabels: Record<string, string> = {
-  bathroom: 'Badkamer',
-  kitchen: 'Keuken',
-  bedroom: 'Slaapkamer',
-  living: 'Woonkamer',
-  hallway: 'Gang',
-  toilet: 'Toilet',
-  laundry: 'Wasruimte',
-  garage: 'Garage',
-  attic: 'Zolder',
-  basement: 'Kelder',
-  other: 'Overig',
-};
-
-const shapeLabels: Record<string, string> = {
-  rectangle: 'Rechthoek',
-  'l-shape': 'L-vorm',
-  custom: 'Custom',
-};
+import { roomTypeLabels } from '../../../../utils/roomNaming';
+import { ROOM_SHAPE_LABELS } from '../../../../utils/shapeLabels';
 
 const floorTypeLabels: Record<string, string> = {
   tiles: 'Tegels', wood: 'Hout', laminate: 'Laminaat',
@@ -45,7 +27,8 @@ export const RoomSummary = () => {
           {draft.name || 'Naamloze kamer'}
         </h3>
         <p className="text-sm text-gray-600">
-          {roomTypeLabels[draft.roomType] ?? draft.roomType} — {shapeLabels[draft.shape] ?? draft.shape}
+          {roomTypeLabels[draft.roomType] ?? draft.roomType} —{' '}
+          {ROOM_SHAPE_LABELS[draft.shape] ?? draft.shape}
         </p>
       </div>
 

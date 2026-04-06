@@ -4,6 +4,10 @@ import type { Wall, WallElement, WallDetail } from '../types/wall';
 import { generateWalls } from '../utils/wallGenerator';
 import { calcFloorArea, calcNetArea } from '../utils/geometry';
 import { generateId } from '../utils/idGenerator';
+import { FLOOR_PLAN_CANVAS_H, FLOOR_PLAN_CANVAS_W } from '../constants/canvas';
+import { getRoomShapeBoundingSize, ROOM_CANVAS_SCALE } from '../utils/geometry';
+import { suggestNextRoomName } from '../utils/roomNaming';
+import { clampSubSpaceTopLeftNoOverlapCm } from '../utils/subSpaceContainment';
 import { useProjectStore } from './projectStore';
 
 interface RoomDraft {
@@ -74,27 +78,63 @@ const createEmptyDraft = (): RoomDraft => ({
 const recalcWallNetAreas = (walls: Wall[]): Wall[] =>
   walls.map((w) => ({ ...w, netArea: calcNetArea(w) }));
 
+const clampSubSpacesNoOverlap = (
+  shape: RoomShape,
+  width: number,
+  length: number,
+  subSpaces: SubSpace[],
+): SubSpace[] => {
+  const next: SubSpace[] = [];
+  subSpaces.forEach((s) => {
+    const position = clampSubSpaceTopLeftNoOverlapCm(
+      shape,
+      width,
+      length,
+      s.width,
+      s.length,
+      s.position.x,
+      s.position.y,
+      next,
+      s.id,
+    );
+    next.push({ ...s, position });
+  });
+  return next;
+};
+
 export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   draft: createEmptyDraft(),
   editingRoomId: null,
 
   setShape: (shape) =>
     set((state) => {
-      const walls = generateWalls(shape, state.draft.width, state.draft.length, state.draft.height, state.draft.customWallCount);
-      return { draft: { ...state.draft, shape, walls } };
+      const d = state.draft;
+      const walls = generateWalls(shape, d.width, d.length, d.height, d.customWallCount);
+      const subSpaces = clampSubSpacesNoOverlap(shape, d.width, d.length, d.subSpaces);
+      return { draft: { ...d, shape, walls, subSpaces } };
     }),
 
   setDimensions: (width, length, height) =>
     set((state) => {
-      const walls = generateWalls(state.draft.shape, width, length, height, state.draft.customWallCount);
-      return { draft: { ...state.draft, width, length, height, walls } };
+      const d = state.draft;
+      const walls = generateWalls(d.shape, width, length, height, d.customWallCount);
+      const subSpaces = clampSubSpacesNoOverlap(d.shape, width, length, d.subSpaces);
+      return { draft: { ...d, width, length, height, walls, subSpaces } };
     }),
 
   setName: (name) =>
     set((state) => ({ draft: { ...state.draft, name } })),
 
   setRoomType: (roomType) =>
-    set((state) => ({ draft: { ...state.draft, roomType } })),
+    set((state) => {
+      const rooms = useProjectStore.getState().project.rooms;
+      const name = suggestNextRoomName(
+        roomType,
+        rooms,
+        state.editingRoomId,
+      );
+      return { draft: { ...state.draft, roomType, name } };
+    }),
 
   setCustomWallCount: (count) =>
     set((state) => {
@@ -115,9 +155,26 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => ({ draft: { ...state.draft, ceilingNotes: notes } })),
 
   addSubSpace: (subSpace) =>
-    set((state) => ({
-      draft: { ...state.draft, subSpaces: [...state.draft.subSpaces, subSpace] },
-    })),
+    set((state) => {
+      const d = state.draft;
+      const position = clampSubSpaceTopLeftNoOverlapCm(
+        d.shape,
+        d.width,
+        d.length,
+        subSpace.width,
+        subSpace.length,
+        subSpace.position.x,
+        subSpace.position.y,
+        d.subSpaces,
+        subSpace.id,
+      );
+      return {
+        draft: {
+          ...d,
+          subSpaces: [...d.subSpaces, { ...subSpace, position }],
+        },
+      };
+    }),
 
   removeSubSpace: (id) =>
     set((state) => ({
@@ -128,14 +185,28 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     })),
 
   updateSubSpace: (id, updates) =>
-    set((state) => ({
-      draft: {
-        ...state.draft,
-        subSpaces: state.draft.subSpaces.map((s) =>
-          s.id === id ? { ...s, ...updates } : s,
-        ),
-      },
-    })),
+    set((state) => {
+      const d = state.draft;
+      const subSpaces = d.subSpaces.map((s) => {
+        if (s.id !== id) return s;
+        const next = { ...s, ...updates };
+        return {
+          ...next,
+          position: clampSubSpaceTopLeftNoOverlapCm(
+            d.shape,
+            d.width,
+            d.length,
+            next.width,
+            next.length,
+            next.position.x,
+            next.position.y,
+            d.subSpaces,
+            next.id,
+          ),
+        };
+      });
+      return { draft: { ...d, subSpaces } };
+    }),
 
   addWallElement: (wallId, element) =>
     set((state) => {
@@ -225,7 +296,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         length: room.length,
         height: room.height,
         walls: room.walls,
-        subSpaces: room.subSpaces,
+        subSpaces: clampSubSpacesNoOverlap(room.shape, room.width, room.length, room.subSpaces),
         floorType: room.floor.type,
         ceilingType: room.ceiling.type,
         floorNotes: room.floor.notes ?? '',
@@ -235,8 +306,12 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       editingRoomId: room.id,
     }),
 
-  resetDraft: () =>
-    set({ draft: createEmptyDraft(), editingRoomId: null }),
+  resetDraft: () => {
+    const rooms = useProjectStore.getState().project.rooms;
+    const draft = createEmptyDraft();
+    draft.name = suggestNextRoomName(draft.roomType, rooms, null);
+    set({ draft, editingRoomId: null });
+  },
 
   finaliseRoom: () => {
     const { draft, editingRoomId } = get();
@@ -244,16 +319,45 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     const existingRooms = useProjectStore.getState().project.rooms;
 
     let position = { x: 50, y: 50 };
-    if (!editingRoomId && existingRooms.length > 0) {
-      const maxX = Math.max(...existingRooms.map((r) => r.position.x + r.width * 0.5));
+    if (!editingRoomId && existingRooms.length === 0) {
+      const { w, h } = getRoomShapeBoundingSize(
+        draft.shape,
+        draft.width,
+        draft.length,
+        ROOM_CANVAS_SCALE,
+      );
+      position = {
+        x: FLOOR_PLAN_CANVAS_W / 2 - w / 2,
+        y: FLOOR_PLAN_CANVAS_H / 2 - h / 2,
+      };
+    } else if (!editingRoomId && existingRooms.length > 0) {
+      const maxX = Math.max(
+        ...existingRooms.map((r) => {
+          const { w } = getRoomShapeBoundingSize(
+            r.shape,
+            r.width,
+            r.length,
+            ROOM_CANVAS_SCALE,
+          );
+          return r.position.x + w;
+        }),
+      );
       position = { x: maxX + 30, y: 50 };
     } else if (editingRoomId) {
       const existing = existingRooms.find((r) => r.id === editingRoomId);
       if (existing) position = existing.position;
     }
 
+    const subSpaces = clampSubSpacesNoOverlap(
+      draft.shape,
+      draft.width,
+      draft.length,
+      draft.subSpaces,
+    );
+
     return {
       ...draft,
+      subSpaces,
       floor: { area: floorArea, type: draft.floorType, notes: draft.floorNotes || undefined },
       ceiling: { area: floorArea, type: draft.ceilingType, notes: draft.ceilingNotes || undefined },
       position,

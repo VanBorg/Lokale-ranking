@@ -1,0 +1,489 @@
+# Oranje Prints — Cursor Prompt voor Claude Opus 4.6
+
+## Wat is dit project?
+
+Oranje Prints is een alles-in-één SaaS-platform voor de Nederlandse bouw-, installatie- en verduurzamingsmarkt. De **enige tool in Nederland** die plattegrond tekenen combineert met projectplanning, urenregistratie, calculatie, offerte/contractgeneratie en materiaalbeheer — gebouwd voor de gewone aannemer, installateur en verduurzamer. Geen AutoCAD-kennis nodig.
+
+### Het kernidee
+
+De **blauwdruk** (plattegrond met kamers, wanden, elementen, details) is het hart van alles. Eén keer tekenen → alle data stroomt automatisch door naar elk ander onderdeel:
+
+```
+                        ┌─────────────────────┐
+                        │    BLAUWDRUK         │
+                        │  (Plattegrond +      │
+                        │   Kamer Wizard)      │
+                        └─────────┬───────────┘
+                                  │
+                    ╔═════════════╧═════════════╗
+                    ║   PROJECT DATABASE        ║
+                    ║   Alle kamers, wanden,     ║
+                    ║   elementen, details       ║
+                    ╚═════════════╤═════════════╝
+                                  │
+          ┌───────────┬───────────┼───────────┬───────────┐
+          ▼           ▼           ▼           ▼           ▼
+    ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+    │  UREN    │ │ PROJECT  │ │ OFFERTE  │ │MATERIAAL │ │RAPPORTAGE│
+    │ PLANNER  │ │ PLANNER  │ │ & CON-   │ │ INKOOP   │ │& FACTUUR │
+    │          │ │          │ │ TRACT    │ │          │ │          │
+    └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+```
+
+### Tijdbesparingen voor de aannemer
+
+| Taak vandaag (handmatig) | Tijd nu | Met Oranje Prints | Besparing |
+|---|---|---|---|
+| Opmeten + schetsen op papier | 1-2 uur | 15-30 min (wizard) | ~70% |
+| Handmatig urenplanning maken per kamer | 2-3 uur | Auto-gegenereerd uit blauwdruk | ~90% |
+| Offerte uittypen in Word/Excel | 2-4 uur | Klik: genereer offerte | ~85% |
+| Materiaallijst samenstellen | 1-2 uur | Auto-berekend (m² tegels, meters leiding, etc.) | ~90% |
+| Projectplanning in agenda/Excel | 1-2 uur | Visuele planner gekoppeld aan kamers | ~75% |
+| Contract opmaken | 1-2 uur | Template + blauwdrukdata → contract | ~80% |
+| **Totaal per project** | **8-15 uur admin** | **~1-2 uur** | **~85%** |
+
+### Modules (in bouwvolgorde)
+
+**MODULE 1 — Blauwdruk Maker (EERST BOUWEN)**
+De basis. Zonder dit werkt niets anders. Projectplattegrond + kamer wizard.
+
+**MODULE 2 — Uren Planner** (later)
+Blauwdruk weet: 4 kamers, 16 wanden, 8 ramen, 3 deuren → systeem berekent geschatte uren per taak. Aannemer past aan en plant in op kalender.
+
+**MODULE 3 — Project Planner** (later)
+Visueel dashboard: welke kamer is in welke fase? Koppel medewerkers aan kamers/taken. Gantt-achtige timeline gegenereerd uit blauwdrukdata.
+
+**MODULE 4 — Offerte & Contract Maker** (later)
+Blauwdrukdata → professionele offerte PDF. Klant accepteert → wordt contract. Prijzen per m², per element, per uur.
+
+**MODULE 5 — Materiaal Inkoop** (later)
+Uit de blauwdruk: 45m² vloertegels, 12m leidingen, 3 deurkozijnen → inkooplijst. Later: koppeling met groothandels (Technische Unie, Stiho, etc.)
+
+**MODULE 6 — Rapportage & Facturatie** (later)
+Voortgang per kamer, gerealiseerde vs geplande uren, facturen genereren uit voltooide werkzaamheden.
+
+---
+
+## FOCUS FASE 1: Blauwdruk Maker
+
+Alles hieronder gaat over Module 1. De andere modules komen later maar het datamodel moet er nu al op voorbereid zijn.
+
+---
+
+## Tech Stack
+
+| Categorie | Technologie | Waarom |
+|-----------|-------------|--------|
+| Framework | **React + TypeScript** | Type safety, componentgebaseerd |
+| Styling | **Tailwind CSS** | Utility-first, snel itereren |
+| Canvas | **Konva / React-Konva** | 2D plattegrond tekenen, drag & drop |
+| State | **Zustand** | Lightweight, geen boilerplate, meerdere stores |
+| Bundler | **Vite** | Snelle dev server, HMR |
+| Router | **React Router** | SPA navigatie |
+
+---
+
+## Core Architectuur
+
+### Layout: twee kolommen
+
+```
+┌─────────────────────────────────────────────────┐
+│  Toolbar / Header                                │
+├──────────────────────┬──────────────────────────┤
+│                      │                          │
+│   CANVAS (links)     │   WIZARD PANEL (rechts)  │
+│                      │                          │
+│   Projectplattegrond │   Slide 1: Vorm          │
+│   met alle kamers    │   Slide 2: Ruimtes       │
+│                      │   Slide 3: Wanden        │
+│   Konva Stage        │   Slide 4: Overzicht     │
+│                      │                          │
+├──────────────────────┴──────────────────────────┤
+│  Statusbar                                       │
+└─────────────────────────────────────────────────┘
+```
+
+- **Links**: groot Konva canvas met de projectplattegrond. Alle voltooide kamers worden hier als blokken geplaatst en zijn versleepbaar.
+- **Rechts**: wizard-panel met stapsgewijze slides voor het aanmaken/bewerken van een kamer.
+
+---
+
+## Wizard Flow — Slides
+
+### Slide 1: Vorm & Afmetingen
+- Gebruiker kiest een basisvorm: rechthoek, L-vorm, of custom
+- Voert breedte × lengte × hoogte in
+- De vorm verschijnt direct op het canvas links
+- Het systeem detecteert automatisch hoeveel muren de kamer heeft op basis van de gekozen vorm (rechthoek = 4, L-vorm = 6, etc.)
+
+### Slide 2: Sub-ruimtes & Indeling
+- Zijn er sub-ruimtes? (inloopkast, nis, uitbouw)
+- Waar op de plattegrond, hoe groot
+- Canvas update live mee
+
+### Slide 3: Wand Carousel (elementen + details gecombineerd)
+- **Carousel** door alle gedetecteerde wanden (dynamisch op basis van slide 1)
+- Per wand: platte 2D rechthoekige view (geen 3D engine nodig — de wand IS een rechthoek met elementen erop)
+- Gebruiker plaatst per wand:
+  - Elementen: deur, raam, radiator, stopcontact, etc.
+  - Details: half betegeld, gat, beschadiging, bijzonderheden
+  - Optioneel: foto upload per wand
+- Vorige/Volgende navigatie
+- Progress indicator: "Wand 2 van 4"
+
+### Slide 4: Overzicht & Bevestiging
+- Volledige kamersamenvatting
+- Alle wanden met hun elementen en details
+- Gebruiker kan terug naar eerdere slides om aan te passen
+- Knop: **"Kamer opslaan en op plattegrond plaatsen"**
+- Na opslaan: kamer verschijnt als blok op het projectcanvas, gebruiker sleept hem op de juiste plek
+- Wizard reset voor de volgende kamer
+
+---
+
+## Data Model (TypeScript)
+
+Dit is het fundament van de hele applicatie. Het datamodel is zo ontworpen dat Module 1 (Blauwdruk) nu werkt, maar latere modules (uren, offerte, inkoop) er naadloos op aansluiten zonder refactoring.
+
+### Waarom dit model zo belangrijk is
+
+Elke `Wall` weet zijn afmetingen → je kunt m² berekenen → je weet hoeveel tegels/verf nodig is → je weet hoeveel uur het kost → dat gaat in de offerte. Die hele keten begint hier.
+
+```typescript
+// types/project.ts
+interface Project {
+  id: string;
+  name: string;
+  clientName?: string;        // later: klantgegevens voor offerte
+  clientAddress?: string;
+  rooms: Room[];
+  status: ProjectStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type ProjectStatus = 'draft' | 'active' | 'quoted' | 'in-progress' | 'completed';
+
+// types/room.ts
+interface Room {
+  id: string;
+  name: string;               // "Badkamer", "Keuken", etc.
+  roomType: RoomType;         // later: bepaalt standaard taken/materialen
+  shape: RoomShape;
+  width: number;              // in cm
+  length: number;             // in cm
+  height: number;             // in cm
+  walls: Wall[];
+  subSpaces: SubSpace[];
+  floor: FloorSpec;           // later: vloertype, m² automatisch berekend
+  ceiling: CeilingSpec;       // later: plafondtype
+  position: { x: number; y: number }; // positie op projectplattegrond
+}
+
+type RoomShape = 'rectangle' | 'l-shape' | 'custom';
+type RoomType = 'bathroom' | 'kitchen' | 'bedroom' | 'living' | 'hallway'
+  | 'toilet' | 'laundry' | 'garage' | 'attic' | 'basement' | 'other';
+
+interface SubSpace {
+  id: string;
+  name: string;
+  width: number;
+  length: number;
+  position: { x: number; y: number }; // relatief aan kamer
+}
+
+interface FloorSpec {
+  type?: FloorType;
+  area: number;               // auto-berekend uit kamerafmetingen (m²)
+  notes?: string;
+}
+
+type FloorType = 'tiles' | 'wood' | 'laminate' | 'concrete' | 'vinyl' | 'other';
+
+interface CeilingSpec {
+  type?: CeilingType;
+  area: number;               // auto-berekend
+  notes?: string;
+}
+
+type CeilingType = 'plaster' | 'suspended' | 'wood' | 'concrete' | 'other';
+
+// types/wall.ts
+interface Wall {
+  id: string;
+  label: string;              // "Noord", "Oost", etc.
+  width: number;              // berekend uit kamerafmetingen (cm)
+  height: number;             // kamerhoogte (cm)
+  surfaceArea: number;        // auto-berekend: breedte × hoogte (m²)
+  netArea: number;            // auto-berekend: surfaceArea minus ramen/deuren (m²)
+  elements: WallElement[];
+  details: WallDetail[];
+  photos: string[];           // URLs naar uploads
+}
+
+interface WallElement {
+  id: string;
+  type: WallElementType;
+  x: number;                  // positie op de wand (cm)
+  y: number;
+  width: number;              // cm
+  height: number;             // cm
+}
+
+type WallElementType =
+  | 'door' | 'window' | 'radiator'
+  | 'outlet' | 'switch' | 'vent'
+  | 'pipe' | 'beam' | 'niche';
+
+interface WallDetail {
+  id: string;
+  type: WallDetailType;
+  description?: string;
+  area?: { x: number; y: number; width: number; height: number };
+}
+
+type WallDetailType =
+  | 'tiled' | 'half-tiled' | 'painted' | 'wallpaper'
+  | 'damaged' | 'hole' | 'moisture' | 'crack'
+  | 'insulated' | 'other';
+```
+
+### Berekeningen die uit het model vloeien (voor latere modules)
+
+```
+Kamer 3×4m, hoogte 2.6m, 1 raam (1.2×1.0m), 1 deur (0.9×2.1m)
+├── Vloer: 12 m²
+├── Plafond: 12 m²
+├── Wand noord (4m): 10.4 m² bruto → 10.4 m² netto (geen elementen)
+├── Wand oost (3m): 7.8 m² bruto → 6.6 m² netto (min raam)
+├── Wand zuid (4m): 10.4 m² bruto → 8.51 m² netto (min deur)
+├── Wand west (3m): 7.8 m² bruto → 7.8 m² netto
+├── TOTAAL wandoppervlak netto: 33.31 m²
+├── → Verf nodig: ~4 liter (8 m²/liter, 2 lagen)
+├── → Geschatte uren schilderen: ~6 uur
+└── → Materiaalkosten: ~€80
+```
+
+Dit soort berekeningen worden later automatisch. Het datamodel maakt het nu al mogelijk.
+
+---
+
+## Folder Structuur
+
+Kleine bestanden. Eén component = één verantwoordelijkheid. Elke wizard-step is een eigen feature-map.
+
+```
+src/
+├── components/
+│   ├── canvas/
+│   │   ├── FloorPlanCanvas.tsx       # Hoofd Konva Stage voor projectplattegrond
+│   │   ├── RoomBlock.tsx             # Individueel kamerblok op canvas (draggable)
+│   │   ├── CanvasToolbar.tsx         # Zoom, pan, grid toggle
+│   │   └── CanvasGrid.tsx            # Achtergrond grid/raster
+│   │
+│   ├── room-wizard/
+│   │   ├── RoomWizard.tsx            # Container: beheert ALLEEN welke slide actief is
+│   │   ├── WizardNavigation.tsx      # Vorige/Volgende knoppen + progress bar
+│   │   ├── steps/
+│   │   │   ├── Step1Shape/
+│   │   │   │   ├── index.tsx         # Step container
+│   │   │   │   ├── ShapePicker.tsx   # Kies vorm (rechthoek, L, custom)
+│   │   │   │   └── DimensionInputs.tsx # Breedte/lengte/hoogte invoer
+│   │   │   │
+│   │   │   ├── Step2Spaces/
+│   │   │   │   ├── index.tsx
+│   │   │   │   └── SpaceEditor.tsx   # Sub-ruimtes toevoegen/bewerken
+│   │   │   │
+│   │   │   ├── Step3Walls/
+│   │   │   │   ├── index.tsx
+│   │   │   │   ├── WallCarousel.tsx  # Vorige/volgende wand navigatie
+│   │   │   │   ├── WallCanvas.tsx    # 2D wand-view (rechthoek + elementen)
+│   │   │   │   ├── WallElementPicker.tsx  # Deur/raam/radiator picker
+│   │   │   │   └── WallDetailEditor.tsx   # Betegeld/gat/beschadiging
+│   │   │   │
+│   │   │   └── Step4Overview/
+│   │   │       ├── index.tsx
+│   │   │       ├── RoomSummary.tsx   # Samenvatting alle data
+│   │   │       └── SaveActions.tsx   # Opslaan & plaatsen knop
+│   │   │
+│   │   └── shared/
+│   │       ├── StepHeader.tsx        # Titel + beschrijving per stap
+│   │       └── StepContainer.tsx     # Gemeenschappelijke wrapper
+│   │
+│   ├── layout/
+│   │   ├── AppLayout.tsx             # Twee-kolom layout
+│   │   ├── Header.tsx
+│   │   └── Statusbar.tsx
+│   │
+│   └── ui/
+│       ├── Button.tsx
+│       ├── Input.tsx
+│       ├── Card.tsx
+│       ├── Select.tsx
+│       └── ProgressBar.tsx
+│
+├── store/
+│   ├── projectStore.ts    # Alle kamers, projectdata, plattegrond posities
+│   ├── roomStore.ts       # Actieve kamer in de wizard (draft state)
+│   └── uiStore.ts         # Welke slide actief is, canvas zoom/pan, modals
+│
+├── types/
+│   ├── project.ts
+│   ├── room.ts
+│   └── wall.ts
+│
+├── hooks/
+│   ├── useWizardStep.ts       # Navigatie logica tussen slides
+│   ├── useRoomCanvas.ts       # Canvas interactie voor kamer
+│   ├── useWallDetection.ts    # Detecteer muren uit vorm + afmetingen
+│   └── useDragRoom.ts         # Kamers slepen op plattegrond
+│
+├── utils/
+│   ├── geometry.ts            # Berekeningen voor vormen, oppervlaktes
+│   ├── wallGenerator.ts       # Genereer muren uit kamervorm
+│   └── idGenerator.ts         # UUID helper
+│
+├── App.tsx
+├── main.tsx
+└── index.css                  # Tailwind imports
+```
+
+---
+
+## State Management — Zustand Stores
+
+### Drie gescheiden stores:
+
+**`projectStore.ts`** — Alle persistente data
+- `rooms: Room[]` — alle voltooide kamers
+- `addRoom(room)` — kamer toevoegen na wizard
+- `updateRoomPosition(id, x, y)` — na slepen op canvas
+- `removeRoom(id)`
+
+**`roomStore.ts`** — Draft kamer in de wizard
+- `draft: Partial<Room>` — de kamer die nu wordt aangemaakt
+- `setShape(shape)`, `setDimensions(w, l, h)`
+- `addWallElement(wallId, element)`
+- `addWallDetail(wallId, detail)`
+- `resetDraft()` — na opslaan of annuleren
+
+**`uiStore.ts`** — UI state
+- `activeStep: number` — welke slide
+- `activeWallIndex: number` — welke wand in carousel
+- `canvasZoom: number`
+- `canvasPan: { x, y }`
+
+---
+
+## Belangrijke Ontwerpregels
+
+1. **RoomWizard.tsx** kent ALLEEN welke stap actief is. Geen business logic. Het is puur een router/container voor de stappen.
+
+2. **Elke step-folder** weet alleen van zichzelf. Step1 weet niks van Step3. Ze communiceren alleen via de Zustand `roomStore`.
+
+3. **Canvas en Wizard zijn onafhankelijk.** Ze lezen beide uit dezelfde stores maar weten niks van elkaar. Canvas luistert naar `projectStore` en `roomStore` (voor live preview). Wizard schrijft naar `roomStore`.
+
+4. **Muren worden automatisch gegenereerd** uit de gekozen vorm in Step 1. Een rechthoek → 4 muren (noord/oost/zuid/west). Een L-vorm → 6 muren. Dit gebeurt in `useWallDetection` of `wallGenerator.ts`.
+
+5. **Kleine bestanden.** Elk bestand heeft één verantwoordelijkheid. Als een bestand groter wordt dan ~100 regels, splits het op.
+
+6. **TypeScript strict mode.** Geen `any` types. Alle data is getypt via de interfaces in `/types`.
+
+7. **Tailwind voor styling.** Geen custom CSS bestanden tenzij echt nodig. Geen CSS modules.
+
+---
+
+## Aanpak — Bouw Volgorde
+
+### Fase 1: Fundament
+1. Vite + React + TypeScript + Tailwind opzetten
+2. Folder structuur aanmaken
+3. TypeScript interfaces definiëren (`/types`)
+4. Zustand stores opzetten met basis actions
+5. AppLayout met twee-kolom layout
+
+### Fase 2: Canvas
+6. Konva Stage met grid
+7. Basis zoom/pan functionaliteit
+8. RoomBlock component (statisch eerst)
+9. Drag & drop kamers op canvas
+
+### Fase 3: Wizard
+10. RoomWizard container + WizardNavigation
+11. Step 1: ShapePicker + DimensionInputs
+12. Automatische muurdetectie uit vorm
+13. Step 2: SubSpace editor
+14. Step 3: WallCarousel + WallCanvas + ElementPicker + DetailEditor
+15. Step 4: Overzicht + opslaan
+
+### Fase 4: Integratie
+16. Live preview op canvas terwijl wizard actief is
+17. Kamer opslaan → verschijnt op plattegrond
+18. Kamer bewerken (klik op blok → wizard opent met data)
+
+---
+
+## Codeerstijl
+
+- **Nederlands** voor UI teksten en comments waar logisch
+- **Engels** voor code (variabelen, functies, types)
+- Functionele components met hooks (geen class components)
+- Named exports (geen default exports behalve pages)
+- `const` boven `let`, nooit `var`
+- Arrow functions voor components
+- Destructuring voor props
+- Geen inline styles — altijd Tailwind classes
+
+---
+
+## Wat dit NIET is (scope begrenzing Fase 1)
+
+Fase 1 bouwt ALLEEN de Blauwdruk Maker. Maar het datamodel en de folder structuur zijn al voorbereid op toekomstige modules.
+
+- Geen backend/API in deze fase — alles client-side (localStorage voor persistence)
+- Geen authenticatie/login
+- Geen calculatie-engine (Module 2-6)
+- Geen offerte-generatie (Module 4)
+- Geen 3D rendering — alles is 2D (wanden zijn platte rechthoeken)
+- Geen materiaalberekeningen (Module 5)
+
+**De focus is: een werkende blauwdruk maker waarin een aannemer kamers tekent, wanden invult, en het hele project als plattegrond opslaat.**
+
+Zodra dit staat, is de data er om alles erop te bouwen.
+
+---
+
+## Toekomstige Folder Structuur (voor context, NIET nu bouwen)
+
+Dit laat zien hoe de app groeit. Module 1 is de `blueprint/` folder + `canvas/`. De rest komt later maar de structuur is er klaar voor.
+
+```
+src/
+├── modules/
+│   ├── blueprint/         # ← MODULE 1 (NU BOUWEN)
+│   │   ├── components/
+│   │   │   ├── canvas/
+│   │   │   └── room-wizard/
+│   │   ├── store/
+│   │   ├── hooks/
+│   │   └── utils/
+│   │
+│   ├── hours/             # ← MODULE 2 (later)
+│   ├── planner/           # ← MODULE 3 (later)
+│   ├── quotes/            # ← MODULE 4 (later)
+│   ├── procurement/       # ← MODULE 5 (later)
+│   └── reporting/         # ← MODULE 6 (later)
+│
+├── shared/
+│   ├── components/ui/     # Buttons, inputs, cards
+│   ├── types/             # Project, Room, Wall interfaces
+│   ├── hooks/             # Gedeelde hooks
+│   └── utils/             # Gedeelde utilities
+│
+├── App.tsx
+├── main.tsx
+└── index.css
+```
+
+Elke module is een zelfstandige feature-folder met eigen components, store en utils. Ze delen alleen de types en UI components uit `shared/`.

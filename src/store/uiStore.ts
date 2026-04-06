@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_CANVAS_ZOOM } from '../constants/canvas';
 
 interface UiState {
   activeStep: number;
@@ -20,12 +21,12 @@ interface UiState {
   resetUi: () => void;
 }
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export const useUiStore = create<UiState>()((set) => ({
   activeStep: 0,
   activeWallIndex: 0,
-  canvasZoom: 1,
+  canvasZoom: DEFAULT_CANVAS_ZOOM,
   canvasPan: { x: 0, y: 0 },
   wizardOpen: false,
   gridVisible: true,

@@ -11,8 +11,8 @@ export const AppLayout = ({ canvas, wizard }: AppLayoutProps) => (
   <>
     <Header />
     <div className="flex flex-1 overflow-hidden">
-      <main className="relative flex-1 bg-gray-50">{canvas}</main>
-      <aside className="w-[420px] shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
+      <main className="relative min-w-0 flex-[1.35] bg-gray-50">{canvas}</main>
+      <aside className="w-[min(360px,32vw)] shrink-0 overflow-y-auto border-l border-gray-200 bg-white">
         {wizard}
       </aside>
     </div>

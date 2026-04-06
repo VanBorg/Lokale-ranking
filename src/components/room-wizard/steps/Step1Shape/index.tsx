@@ -7,20 +7,7 @@ import { StepHeader } from '../../shared/StepHeader';
 import { ShapePicker } from './ShapePicker';
 import { DimensionInputs } from './DimensionInputs';
 import type { RoomType } from '../../../../types/room';
-
-const roomTypeOptions = [
-  { value: 'bathroom', label: 'Badkamer' },
-  { value: 'kitchen', label: 'Keuken' },
-  { value: 'bedroom', label: 'Slaapkamer' },
-  { value: 'living', label: 'Woonkamer' },
-  { value: 'hallway', label: 'Gang' },
-  { value: 'toilet', label: 'Toilet' },
-  { value: 'laundry', label: 'Wasruimte' },
-  { value: 'garage', label: 'Garage' },
-  { value: 'attic', label: 'Zolder' },
-  { value: 'basement', label: 'Kelder' },
-  { value: 'other', label: 'Overig' },
-];
+import { ROOM_TYPE_OPTIONS } from '../../../../utils/roomNaming';
 
 export const Step1Shape = () => {
   const name = useRoomStore((s) => s.draft.name);
@@ -33,21 +20,21 @@ export const Step1Shape = () => {
     <StepContainer>
       <StepHeader
         title="Vorm & Afmetingen"
-        description="Kies de basisvorm van de kamer en vul de afmetingen in."
-      />
-      <Input
-        id="room-name"
-        label="Kamernaam"
-        placeholder="bijv. Badkamer boven"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
+        description="Kies de basisvorm van de kamer en vul de afmetingen in. Links op de plattegrond zie je een live voorbeeld van die kamer — dit is de buitenomtrek waarmee latere stappen werken."
       />
       <Select
         id="room-type"
         label="Type ruimte"
-        options={roomTypeOptions}
+        options={ROOM_TYPE_OPTIONS}
         value={roomType}
         onChange={(e) => setRoomType(e.target.value as RoomType)}
+      />
+      <Input
+        id="room-name"
+        label="Kamernaam"
+        placeholder="Wordt automatisch ingevuld; pas gerust aan"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
       />
       <ShapePicker />
       <DimensionInputs />
