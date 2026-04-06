@@ -36,19 +36,25 @@ export function createPresetVertices(
         { x: 0, y: L },
       ];
 
-    // ┌────┐
-    // │    │
-    // └────┤
-    //      │
-    // ┌────┘
-    case 'l-shape-mirror':
+    //    ┌───┐
+    // ┌──┘   └──┐
+    // │         │    Kruisvorm: hal, overloop
+    // └──┐   ┌──┘
+    //    └───┘
+    case 'plus':
       return [
-        { x: Math.round(W * 0.5), y: 0 },
-        { x: W, y: 0 },
-        { x: W, y: L },
-        { x: 0, y: L },
-        { x: 0, y: Math.round(L * 0.5) },
-        { x: Math.round(W * 0.5), y: Math.round(L * 0.5) },
+        { x: Math.round(W * 0.3), y: 0 },
+        { x: Math.round(W * 0.7), y: 0 },
+        { x: Math.round(W * 0.7), y: Math.round(L * 0.3) },
+        { x: W, y: Math.round(L * 0.3) },
+        { x: W, y: Math.round(L * 0.7) },
+        { x: Math.round(W * 0.7), y: Math.round(L * 0.7) },
+        { x: Math.round(W * 0.7), y: L },
+        { x: Math.round(W * 0.3), y: L },
+        { x: Math.round(W * 0.3), y: Math.round(L * 0.7) },
+        { x: 0, y: Math.round(L * 0.7) },
+        { x: 0, y: Math.round(L * 0.3) },
+        { x: Math.round(W * 0.3), y: Math.round(L * 0.3) },
       ];
 
     // ┌───┐   ┌───┐
@@ -130,12 +136,12 @@ export function createPresetVertices(
 
 /** Dutch labels for the preset picker UI. */
 export const PRESET_LABELS: Record<RoomPreset, { label: string; desc: string }> = {
-  rectangle:       { label: 'Rechthoek',       desc: 'Standaard kamer' },
-  'l-shape':       { label: 'L-vorm',           desc: 'Hoek uitgespaard' },
-  'l-shape-mirror':{ label: 'L-vorm (spiegel)', desc: 'Hoek gespiegeld' },
-  'u-shape':       { label: 'U-vorm',           desc: 'Open bovenkant' },
-  't-shape':       { label: 'T-vorm',           desc: 'Smal + breed deel' },
-  trapezoid:       { label: 'Trapezium',        desc: 'Schuine wand (zolder)' },
-  pentagon:        { label: 'Vijfhoek',         desc: 'Erkerkamer' },
-  hexagon:         { label: 'Zeshoek',          desc: 'Dubbele erker' },
+  rectangle: { label: 'Rechthoek',  desc: 'Standaard kamer' },
+  'l-shape':  { label: 'L-vorm',    desc: 'Hoek uitgespaard' },
+  plus:       { label: '+-vorm',    desc: 'Kruisvorm (hal)' },
+  'u-shape':  { label: 'U-vorm',    desc: 'Open bovenkant' },
+  't-shape':  { label: 'T-vorm',    desc: 'Smal + breed deel' },
+  trapezoid:  { label: 'Trapezium', desc: 'Schuine wand (zolder)' },
+  pentagon:   { label: 'Vijfhoek',  desc: 'Erkerkamer' },
+  hexagon:    { label: 'Zeshoek',   desc: 'Dubbele erker' },
 };

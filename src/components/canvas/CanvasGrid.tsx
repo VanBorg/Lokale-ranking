@@ -3,10 +3,10 @@ import { Line } from 'react-konva';
 interface CanvasGridProps {
   width: number;
   height: number;
-  cellSize?: number;
+  cellSize: number;
 }
 
-export const CanvasGrid = ({ width, height, cellSize = 50 }: CanvasGridProps) => {
+export const CanvasGrid = ({ width, height, cellSize }: CanvasGridProps) => {
   const lines: { points: number[]; key: string }[] = [];
 
   for (let x = 0; x <= width; x += cellSize) {
@@ -22,8 +22,8 @@ export const CanvasGrid = ({ width, height, cellSize = 50 }: CanvasGridProps) =>
         <Line
           key={key}
           points={points}
-          stroke="#e5e7eb"
-          strokeWidth={0.5}
+          stroke="#c8cdd4"
+          strokeWidth={0.7}
           listening={false}
         />
       ))}

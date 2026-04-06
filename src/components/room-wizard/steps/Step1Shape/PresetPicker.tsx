@@ -3,7 +3,7 @@ import { PRESET_LABELS } from '../../../../utils/presets';
 import type { RoomPreset } from '../../../../types/room';
 
 const PRESETS: RoomPreset[] = [
-  'rectangle', 'l-shape', 'l-shape-mirror', 'u-shape',
+  'rectangle', 'l-shape', 'plus', 'u-shape',
   't-shape', 'trapezoid', 'pentagon', 'hexagon',
 ];
 

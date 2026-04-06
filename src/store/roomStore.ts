@@ -4,7 +4,7 @@ import type {
 } from '../types/room';
 import type { Wall, WallElement, WallDetail } from '../types/wall';
 import { generateWallsFromVertices } from '../utils/wallGenerator';
-import { calcNetArea, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../utils/geometry';
+import { calcNetArea, verticesBoundingBox, ROOM_CANVAS_SCALE, rotateVertices90CW } from '../utils/geometry';
 import { calcPolygonArea, midpoint } from '../utils/geometry';
 import { createPresetVertices } from '../utils/presets';
 import { generateId } from '../utils/idGenerator';
@@ -44,6 +44,8 @@ interface RoomStoreState {
   setCeilingType: (type: CeilingType | undefined) => void;
   setFloorNotes: (notes: string) => void;
   setCeilingNotes: (notes: string) => void;
+
+  rotateRoom: () => void;
 
   addSubSpace: (subSpace: SubSpace) => void;
   removeSubSpace: (id: string) => void;
@@ -185,6 +187,15 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
 
   setCeilingNotes: (notes) =>
     set((state) => ({ draft: { ...state.draft, ceilingNotes: notes } })),
+
+  rotateRoom: () =>
+    set((state) => {
+      const d = state.draft;
+      const vertices = rotateVertices90CW(d.vertices);
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      return { draft: { ...d, vertices, walls, subSpaces } };
+    }),
 
   addSubSpace: (subSpace) =>
     set((state) => ({

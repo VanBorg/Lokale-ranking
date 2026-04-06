@@ -13,7 +13,7 @@ export interface RoomVertex {
 export type RoomPreset =
   | 'rectangle'
   | 'l-shape'
-  | 'l-shape-mirror'
+  | 'plus'
   | 'u-shape'
   | 't-shape'
   | 'trapezoid'

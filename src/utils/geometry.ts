@@ -72,3 +72,24 @@ export function midpoint(a: RoomVertex, b: RoomVertex): RoomVertex {
 export function calcSurfaceAreaWall(widthCm: number, heightCm: number): number {
   return calcSurfaceArea(widthCm, heightCm);
 }
+
+/**
+ * Roteer alle vertices 90° met de klok mee rond het centrum van hun bounding box.
+ * Normaliseert daarna zodat min(x)=0, min(y)=0.
+ */
+export function rotateVertices90CW(vertices: RoomVertex[]): RoomVertex[] {
+  const bb = verticesBoundingBox(vertices);
+  const cx = bb.minX + bb.width / 2;
+  const cy = bb.minY + bb.height / 2;
+
+  const rotated = vertices.map((v) => ({
+    x: Math.round(cx + (v.y - cy)),
+    y: Math.round(cy - (v.x - cx)),
+  }));
+
+  const rbb = verticesBoundingBox(rotated);
+  return rotated.map((v) => ({
+    x: v.x - rbb.minX,
+    y: v.y - rbb.minY,
+  }));
+}

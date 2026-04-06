@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type Konva from 'konva';
 import { Group, Line, Rect, Circle, Text } from 'react-konva';
 import type { RoomVertex, SubSpace } from '../../types/room';
+import type { Wall } from '../../types/wall';
 import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
 import { isZonePlacementValid } from '../../utils/subSpaceContainment';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
@@ -11,15 +12,17 @@ interface RoomPreviewProps {
   x: number;
   y: number;
   vertices: RoomVertex[];
+  walls: Wall[];
   subSpaces: SubSpace[];
   name: string;
   canvasMode: WizardCanvasMode;
   onVertexDrag?: (index: number, pos: { x: number; y: number }) => void;
+  onVertexDragEnd?: () => void;
   onZoneDrag?: (id: string, pos: { x: number; y: number }) => void;
 }
 
 export const RoomPreview = ({
-  x, y, vertices, subSpaces, name, canvasMode, onVertexDrag, onZoneDrag,
+  x, y, vertices, walls, subSpaces, name, canvasMode, onVertexDrag, onVertexDragEnd, onZoneDrag,
 }: RoomPreviewProps) => {
   const groupRef = useRef<Konva.Group | null>(null);
   const [invalidZones, setInvalidZones] = useState<Set<string>>(new Set());
@@ -48,6 +51,34 @@ export const RoomPreview = ({
         dash={isOutlineMode ? [8, 4] : undefined}
       />
 
+      {/* Wall labels + afmetingen — visible in all canvas modes */}
+      {walls.map((wall, i) => {
+        const v1 = vertices[i]!;
+        const v2 = vertices[(i + 1) % vertices.length]!;
+        const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
+        const my = ((v1.y + v2.y) / 2) * ROOM_CANVAS_SCALE;
+        const dx = v2.x - v1.x;
+        const dy = v2.y - v1.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = (-dy / len) * 14;
+        const ny = (dx / len) * 14;
+        const label = `${String.fromCharCode(65 + i)} ${(wall.width / 100).toFixed(2)}m`;
+        return (
+          <Text
+            key={`wl-${i}`}
+            listening={false}
+            x={mx + nx}
+            y={my + ny}
+            text={label}
+            fontSize={10}
+            fill="#9a3412"
+            fontStyle="bold"
+            align="center"
+            offsetX={label.length * 2.5}
+          />
+        );
+      })}
+
       {/* Vertex drag handles — only in room-outline mode */}
       {isOutlineMode && vertices.map((v, i) => (
         <Circle
@@ -70,6 +101,7 @@ export const RoomPreview = ({
             const cmX = snap10(localX / ROOM_CANVAS_SCALE);
             const cmY = snap10(localY / ROOM_CANVAS_SCALE);
             onVertexDrag?.(i, { x: cmX, y: cmY });
+            onVertexDragEnd?.();
           }}
         />
       ))}

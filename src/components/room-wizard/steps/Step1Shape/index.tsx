@@ -1,10 +1,10 @@
 import { useRoomStore } from '../../../../store/roomStore';
 import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';
+import { Button } from '../../../ui/Button';
 import { StepContainer } from '../../shared/StepContainer';
 import { StepHeader } from '../../shared/StepHeader';
 import { PresetPicker } from './PresetPicker';
-import { VertexEditor } from './VertexEditor';
 import type { RoomType } from '../../../../types/room';
 import { ROOM_TYPE_OPTIONS } from '../../../../utils/roomNaming';
 
@@ -16,6 +16,7 @@ export const Step1Shape = () => {
   const setName = useRoomStore((s) => s.setName);
   const setRoomType = useRoomStore((s) => s.setRoomType);
   const setHeight = useRoomStore((s) => s.setHeight);
+  const rotateRoom = useRoomStore((s) => s.rotateRoom);
 
   return (
     <StepContainer>
@@ -45,6 +46,9 @@ export const Step1Shape = () => {
           Basisvorm
         </p>
         <PresetPicker />
+        <Button variant="secondary" onClick={rotateRoom} className="mt-1 w-full">
+          ↻ Kwartslag draaien
+        </Button>
       </div>
 
       <Input
@@ -56,8 +60,6 @@ export const Step1Shape = () => {
         value={height}
         onChange={(e) => setHeight(parseInt(e.target.value, 10) || 0)}
       />
-
-      <VertexEditor />
 
       <div className="rounded-lg bg-gray-50 p-3">
         <p className="text-sm font-medium text-gray-700">
