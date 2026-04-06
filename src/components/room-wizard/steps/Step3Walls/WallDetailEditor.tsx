@@ -35,7 +35,7 @@ export const WallDetailEditor = () => {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-gray-700">Details & Bijzonderheden</p>
+      <p className="mb-2 text-sm font-medium text-white">Details & Bijzonderheden</p>
 
       {wall.details.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
@@ -44,11 +44,11 @@ export const WallDetailEditor = () => {
             return (
               <span
                 key={d.id}
-                className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
+                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs text-muted"
               >
                 {label}
                 <button
-                  className="ml-0.5 text-gray-400 hover:text-red-500"
+                  className="ml-0.5 text-muted hover:text-red-400"
                   onClick={() => removeDetail(wall.id, d.id)}
                 >
                   ✕

@@ -32,12 +32,12 @@ export const WallPhotoUpload = () => {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-gray-700">Foto&apos;s</p>
+      <p className="mb-2 text-sm font-medium text-white">Foto&apos;s</p>
 
       {wall.photos.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {wall.photos.map((src, i) => (
-            <div key={i} className="group relative h-16 w-16 overflow-hidden rounded-md border border-gray-200">
+            <div key={i} className="group relative h-16 w-16 overflow-hidden rounded-md border border-line">
               <img src={src} alt={`Wand foto ${i + 1}`} className="h-full w-full object-cover" />
               <button
                 className="absolute right-0 top-0 hidden rounded-bl bg-red-600 px-1 text-xs text-white group-hover:block"

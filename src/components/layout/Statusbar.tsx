@@ -6,7 +6,7 @@ export const Statusbar = () => {
   const roomCount = useProjectStore((s) => s.project.rooms.length);
 
   return (
-    <footer className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-1 text-xs text-gray-500">
+    <footer className="flex items-center justify-between border-t border-line bg-app px-4 py-1 text-xs text-muted">
       <span>Kamers: {roomCount}</span>
       <span>Zoom: {Math.round(zoom * 100)}%</span>
     </footer>

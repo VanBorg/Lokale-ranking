@@ -10,8 +10,8 @@ export const Step2Spaces = () => (
       description="Stap 1 heeft de buitenkant van de kamer vastgelegd. Hier plaats je sub-ruimtes (zones) binnen die kamer. Sleep ze op de plattegrond links naar de juiste plek."
     />
     <RoomOutlineSummary />
-    <div className="mt-1 border-t border-gray-100 pt-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <div className="mt-1 border-t border-white/10 pt-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
         Sub-ruimtes
       </p>
       <SpaceEditor />

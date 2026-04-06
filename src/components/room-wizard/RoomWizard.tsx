@@ -13,8 +13,8 @@ export const RoomWizard = () => {
 
   if (!wizardOpen) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-8 text-center text-gray-400">
-        <p className="text-lg font-medium">Geen actieve kamer</p>
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center text-muted">
+        <p className="text-lg font-medium text-white">Geen actieve kamer</p>
         <p className="mt-1 text-sm">
           Klik op &quot;+ Nieuwe Kamer&quot; om te beginnen
         </p>

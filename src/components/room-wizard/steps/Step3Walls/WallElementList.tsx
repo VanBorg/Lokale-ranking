@@ -11,20 +11,20 @@ export const WallElementList = () => {
 
   return (
     <div>
-      <p className="mb-1 text-sm font-medium text-gray-700">
+      <p className="mb-1 text-sm font-medium text-white">
         Elementen op deze wand ({wall.elements.length})
       </p>
       <ul className="flex flex-col gap-1">
         {wall.elements.map((el) => (
           <li
             key={el.id}
-            className="flex items-center justify-between rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-700"
+            className="flex items-center justify-between rounded-md bg-app px-2 py-1 text-xs text-muted"
           >
             <span>
               {el.type} — {el.width}×{el.height} cm @ ({el.x}, {el.y})
             </span>
             <button
-              className="text-gray-400 hover:text-red-500"
+              className="text-muted hover:text-red-400"
               onClick={() => removeElement(wall.id, el.id)}
             >
               ✕
@@ -32,7 +32,7 @@ export const WallElementList = () => {
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-xs text-gray-400">
+      <p className="mt-1 text-xs text-muted/80">
         Netto oppervlak: {wall.netArea} m²
       </p>
     </div>

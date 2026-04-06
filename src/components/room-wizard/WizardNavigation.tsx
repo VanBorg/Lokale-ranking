@@ -33,13 +33,13 @@ export const WizardNavigation = () => {
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="border-t border-line bg-surface p-4">
       <ProgressBar current={step + 1} total={TOTAL} />
-      <p className="mt-2 mb-3 text-center text-xs text-gray-500">
+      <p className="mt-2 mb-3 text-center text-xs text-muted">
         Stap {step + 1} van {TOTAL}: {STEP_LABELS[step]}
       </p>
       {error && (
-        <p className="mb-2 rounded-md bg-red-50 px-3 py-1.5 text-center text-xs text-red-600">
+        <p className="mb-2 rounded-md bg-red-950/50 px-3 py-1.5 text-center text-xs text-red-400">
           {error}
         </p>
       )}

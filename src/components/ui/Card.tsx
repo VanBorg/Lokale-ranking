@@ -6,10 +6,10 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const Card = ({ selected, className = '', children, ...rest }: CardProps) => (
   <div
-    className={`rounded-xl border bg-white p-4 shadow-sm transition-colors ${
+    className={`rounded-xl border bg-surface p-4 shadow-sm transition-colors ${
       selected
         ? 'border-oranje ring-2 ring-oranje/30'
-        : 'border-gray-200 hover:border-gray-300'
+        : 'border-line hover:border-white/20'
     } ${className}`}
     {...rest}
   >

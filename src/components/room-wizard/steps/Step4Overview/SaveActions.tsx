@@ -33,7 +33,7 @@ export const SaveActions = () => {
   return (
     <div className="flex flex-col gap-2">
       {!canSave && (
-        <p className="text-center text-xs text-red-500">
+        <p className="text-center text-xs text-red-400">
           Vul minimaal een kamernaam en geldige afmetingen in om op te slaan.
         </p>
       )}

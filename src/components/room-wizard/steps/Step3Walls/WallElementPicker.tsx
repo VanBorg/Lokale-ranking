@@ -44,7 +44,7 @@ export const WallElementPicker = () => {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-gray-700">Element toevoegen</p>
+      <p className="mb-2 text-sm font-medium text-white">Element toevoegen</p>
       <div className="flex flex-wrap gap-1.5">
         {elements.map((def) => (
           <Button
