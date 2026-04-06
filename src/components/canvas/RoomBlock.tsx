@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
 import { useProjectStore } from '../../store/projectStore';
 import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
+import { KONVA_COLORS } from '../../design/konva';
 
 interface RoomBlockProps {
   room: Room;
@@ -43,14 +44,27 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
       onContextMenu={handleContextMenu}
       opacity={dimmed ? 0.4 : 1}
     >
-      <Line points={points} closed fill="#fff7ed" stroke="#f97316" strokeWidth={2} />
-      <Text text={room.name || room.roomType} x={8} y={8} fontSize={14} fontStyle="bold" fill="#9a3412" />
+      <Line
+        points={points}
+        closed
+        fill={KONVA_COLORS.roomFill}
+        stroke={KONVA_COLORS.roomStroke}
+        strokeWidth={2}
+      />
+      <Text
+        text={room.name || room.roomType}
+        x={8}
+        y={8}
+        fontSize={14}
+        fontStyle="bold"
+        fill={KONVA_COLORS.roomLabel}
+      />
       <Text
         text={`${Math.round(bb.width)}×${Math.round(bb.height)} cm`}
         x={8}
         y={26}
         fontSize={11}
-        fill="#c2410c"
+        fill={KONVA_COLORS.roomLabelSub}
       />
     </Group>
   );

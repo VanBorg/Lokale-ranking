@@ -15,13 +15,13 @@ export const Header = () => {
   };
 
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+    <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-2">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-oranje text-sm font-bold text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
           OP
         </div>
-        <h1 className="text-lg font-semibold text-gray-900">{projectName}</h1>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+        <h1 className="text-lg font-semibold text-white">{projectName}</h1>
+        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-muted">
           {roomCount} {roomCount === 1 ? 'kamer' : 'kamers'}
         </span>
       </div>

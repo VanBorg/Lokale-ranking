@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DEFAULT_CANVAS_ZOOM } from '../constants/canvas';
+import { DEFAULT_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../constants/canvas';
 
 interface UiState {
   activeStep: number;
@@ -37,7 +37,8 @@ export const useUiStore = create<UiState>()((set) => ({
   prevStep: () =>
     set((s) => ({ activeStep: Math.max(s.activeStep - 1, 0) })),
   setActiveWallIndex: (index) => set({ activeWallIndex: index }),
-  setCanvasZoom: (zoom) => set({ canvasZoom: zoom }),
+  setCanvasZoom: (zoom) =>
+    set({ canvasZoom: Math.min(3, Math.max(MIN_CANVAS_ZOOM, zoom)) }),
   setCanvasPan: (pan) => set({ canvasPan: pan }),
   openWizard: () => set({ wizardOpen: true, activeStep: 0, activeWallIndex: 0 }),
   closeWizard: () => set({ wizardOpen: false }),

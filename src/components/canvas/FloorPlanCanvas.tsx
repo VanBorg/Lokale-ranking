@@ -1,27 +1,43 @@
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
 import { Stage, Layer } from 'react-konva';
-import { DEFAULT_CANVAS_ZOOM } from '../../constants/canvas';
+import { DEFAULT_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../../constants/canvas';
 import { useUiStore } from '../../store/uiStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useRoomStore } from '../../store/roomStore';
 import { useRoomCanvas } from '../../hooks/useRoomCanvas';
+import { useAutoZoom } from '../../hooks/useAutoZoom';
 import { getDraftPreviewWorldPosition, panToCenterRoomOnViewport } from '../../utils/canvasView';
 import { getWizardCanvasMode } from '../../utils/wizardCanvas';
 import { CanvasGrid } from './CanvasGrid';
 import { CanvasToolbar } from './CanvasToolbar';
 import { RoomBlock } from './RoomBlock';
 import { RoomPreview } from './RoomPreview';
-import { ROOM_CANVAS_SCALE } from '../../utils/geometry';
+import {
+  ROOM_CANVAS_SCALE,
+  GRID_BUFFER_CELLS,
+  GRID_MIN_CELLS,
+  computeGridExtentCells,
+  symmetricGridPanForViewport,
+} from '../../utils/geometry';
 
 export const FloorPlanCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const appliedInitialZoomRef = useRef(false);
+  const pendingPreviewSyncRef = useRef(false);
   const [size, setSize] = useState({ width: 800, height: 600 });
 
   const zoomValue = useUiStore((s) => s.canvasZoom);
-  const gridCellSize = 200 * ROOM_CANVAS_SCALE; // 2m per box
-  const gridRows = 13; // 26m tall
-  const visibleWorldW = zoomValue > 0 ? size.width / zoomValue : size.width;
-  const gridCols = Math.max(1, Math.ceil(visibleWorldW / gridCellSize));
+  const defaultZoom =
+    size.height > 0 ? size.height / (1600 * ROOM_CANVAS_SCALE) : DEFAULT_CANVAS_ZOOM;
+  // Pan clamp bounds must not track live zoom — otherwise content size jumps every wheel step.
+  const { cols: gridCols, rows: _gridRows, cellPx: gridCellSize } = computeGridExtentCells(
+    size.width,
+    size.height,
+    MIN_CANVAS_ZOOM,
+    GRID_BUFFER_CELLS,
+    GRID_MIN_CELLS,
+  );
+  const gridRows = 26; // 52 m visible at max zoom-out (3× the 16 m default view)
   const gridWidth = gridCols * gridCellSize;
   const gridHeight = gridRows * gridCellSize;
 
@@ -30,7 +46,14 @@ export const FloorPlanCanvas = () => {
     viewportHeight: size.height,
     contentWidth: gridWidth,
     contentHeight: gridHeight,
+    defaultZoom,
   });
+
+  const z = zoom > 0 ? zoom : 1;
+  const worldLeft = -pan.x / z;
+  const worldTop = -pan.y / z;
+  const worldRight = worldLeft + size.width / z;
+  const worldBottom = worldTop + size.height / z;
   const setCanvasPan = useUiStore((s) => s.setCanvasPan);
   const setCanvasZoom = useUiStore((s) => s.setCanvasZoom);
   const wizardOpen = useUiStore((s) => s.wizardOpen);
@@ -48,21 +71,60 @@ export const FloorPlanCanvas = () => {
   const editingRoomId = useRoomStore((s) => s.editingRoomId);
   const updateVertex = useRoomStore((s) => s.updateVertex);
   const updateSubSpace = useRoomStore((s) => s.updateSubSpace);
+  const shouldAutoZoom = wizardCanvasMode === 'room-outline' && Boolean(editingRoomId);
 
-  // Keep the floor-plan position fixed. The room preview is centered inside the current
-  // viewport without changing pan/zoom, then locked while editing.
+  useAutoZoom(draft.vertices, size.width, size.height, shouldAutoZoom);
+
+  // Draft room: keep it centred in the viewport whenever zoom/pan/size change (clampPan
+  // after zoom can move the view — without this, the room drifts). Vertex drags do not
+  // change zoom/pan, so the preview stays put while dragging handles.
   const [draftPreviewPos, setDraftPreviewPos] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    if (!wizardOpen) return;
-    setDraftPreviewPos(
-      getDraftPreviewWorldPosition(draft.vertices, size.width, size.height, zoom, pan),
-    );
-    // Intentionally only on wizardOpen change — vertices/zoom/pan during
-    // vertex dragging must NOT shift the preview position.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wizardOpen]);
+  const readViewportSize = useCallback(() => {
+    const el = containerRef.current;
+    const r = el?.getBoundingClientRect();
+    const vw = r && r.width > 0 ? r.width : size.width;
+    const vh = r && r.height > 0 ? r.height : size.height;
+    return { vw, vh };
+  }, [size.width, size.height]);
 
+  // Sync state width/height with the real canvas pane (left column only — not the whole window).
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      setSize({ width: r.width, height: r.height });
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!wizardOpen) return;
+    if (shouldAutoZoom) {
+      pendingPreviewSyncRef.current = true;
+      return;
+    }
+    const { vw, vh } = readViewportSize();
+    setDraftPreviewPos(getDraftPreviewWorldPosition(draft.vertices, vw, vh, zoom, pan));
+  }, [
+    wizardOpen,
+    shouldAutoZoom,
+    readViewportSize,
+    size.width,
+    size.height,
+    zoom,
+    pan.x,
+    pan.y,
+    draft.preset,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!wizardOpen) return;
+    if (!pendingPreviewSyncRef.current) return;
+    const { vw, vh } = readViewportSize();
+    setDraftPreviewPos(getDraftPreviewWorldPosition(draft.vertices, vw, vh, zoom, pan));
+    pendingPreviewSyncRef.current = false;
+  }, [wizardOpen, readViewportSize, zoom, pan.x, pan.y, size.width, size.height]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -74,6 +136,15 @@ export const FloorPlanCanvas = () => {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (appliedInitialZoomRef.current) return;
+    if (zoomValue !== DEFAULT_CANVAS_ZOOM) return;
+    if (size.width <= 0 || size.height <= 0) return;
+    setCanvasZoom(defaultZoom);
+    setCanvasPan(symmetricGridPanForViewport(size.width, size.height, defaultZoom));
+    appliedInitialZoomRef.current = true;
+  }, [defaultZoom, size.width, size.height, zoomValue, setCanvasZoom, setCanvasPan]);
+
   const prevRoomCountRef = useRef(0);
   useEffect(() => {
     const prev = prevRoomCountRef.current;
@@ -81,21 +152,33 @@ export const FloorPlanCanvas = () => {
     if (rooms.length !== 1 || prev !== 0) return;
     const room = rooms[0];
     if (!room) return;
-    setCanvasZoom(DEFAULT_CANVAS_ZOOM);
-    setCanvasPan(panToCenterRoomOnViewport(room, size.width, size.height, DEFAULT_CANVAS_ZOOM));
-  }, [rooms, size.width, size.height, setCanvasPan, setCanvasZoom]);
+    setCanvasZoom(defaultZoom);
+    setCanvasPan(panToCenterRoomOnViewport(room, size.width, size.height, defaultZoom));
+  }, [rooms, size.width, size.height, defaultZoom, setCanvasPan, setCanvasZoom]);
+
+  const prevRoomIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    const prevIds = prevRoomIdsRef.current;
+    const nextIds = rooms.map((room) => room.id);
+    prevRoomIdsRef.current = nextIds;
+    if (nextIds.length <= prevIds.length) return;
+    if (prevIds.length === 0 && nextIds.length === 1) return;
+    const newRoom = rooms[rooms.length - 1];
+    if (!newRoom) return;
+    setCanvasPan(panToCenterRoomOnViewport(newRoom, size.width, size.height, zoomValue));
+  }, [rooms, size.width, size.height, zoomValue, setCanvasPan]);
 
   const handleResetView = useCallback(() => {
-    setCanvasZoom(DEFAULT_CANVAS_ZOOM);
+    setCanvasZoom(defaultZoom);
     if (rooms.length === 1 && rooms[0]) {
-      setCanvasPan(panToCenterRoomOnViewport(rooms[0], size.width, size.height, DEFAULT_CANVAS_ZOOM));
+      setCanvasPan(panToCenterRoomOnViewport(rooms[0], size.width, size.height, defaultZoom));
     } else {
-      setCanvasPan({ x: 0, y: 0 });
+      setCanvasPan(symmetricGridPanForViewport(size.width, size.height, defaultZoom));
     }
-  }, [rooms, size.width, size.height, setCanvasPan, setCanvasZoom]);
+  }, [rooms, size.width, size.height, defaultZoom, setCanvasPan, setCanvasZoom]);
 
   return (
-    <div ref={containerRef} className="h-full w-full">
+    <div ref={containerRef} className="h-full w-full bg-app" style={{ cursor: isSubSpaceLayoutStep ? 'default' : 'grab' }}>
       <Stage
         width={size.width}
         height={size.height}
@@ -109,7 +192,13 @@ export const FloorPlanCanvas = () => {
       >
         <Layer>
           {gridVisible && (
-            <CanvasGrid width={gridWidth} height={gridHeight} cellSize={gridCellSize} />
+            <CanvasGrid
+              cellSize={gridCellSize}
+              worldLeft={worldLeft}
+              worldTop={worldTop}
+              worldRight={worldRight}
+              worldBottom={worldBottom}
+            />
           )}
           {rooms.map((room) => (
             <RoomBlock key={room.id} room={room} dimmed={editingRoomId === room.id} />

@@ -4,22 +4,11 @@ import type Konva from 'konva';
 import { useUiStore } from '../../../../store/uiStore';
 import { useRoomStore } from '../../../../store/roomStore';
 import type { WallElement } from '../../../../types/wall';
+import { KONVA_COLORS } from '../../../../design/konva';
 
 const CANVAS_W = 370;
 const CANVAS_H = 220;
 const PADDING = 20;
-
-const elementColors: Record<string, string> = {
-  door: '#92400e',
-  window: '#0ea5e9',
-  radiator: '#ef4444',
-  outlet: '#f59e0b',
-  switch: '#f59e0b',
-  vent: '#6b7280',
-  pipe: '#6b7280',
-  beam: '#78716c',
-  niche: '#a78bfa',
-};
 
 const elementLabels: Record<string, string> = {
   door: 'Deur',
@@ -63,7 +52,7 @@ export const WallCanvas = () => {
   const renderElement = (el: WallElement) => {
     const w = el.width * scale;
     const h = el.height * scale;
-    const colour = elementColors[el.type] ?? '#6b7280';
+    const colour = KONVA_COLORS.wallElementColors[el.type] ?? '#6b7280';
     const label = elementLabels[el.type] ?? el.type;
 
     return (
@@ -103,7 +92,7 @@ export const WallCanvas = () => {
   };
 
   return (
-    <div className="flex justify-center rounded-lg border border-gray-200 bg-white p-1">
+    <div className="flex justify-center rounded-lg border border-line bg-app p-1">
       <Stage width={CANVAS_W} height={CANVAS_H}>
         <Layer>
           <Rect
@@ -111,8 +100,8 @@ export const WallCanvas = () => {
             y={offsetY}
             width={wallW}
             height={wallH}
-            fill="#fafaf9"
-            stroke="#d6d3d1"
+            fill={KONVA_COLORS.wallFill}
+            stroke={KONVA_COLORS.wallStroke}
             strokeWidth={2}
           />
           <Group x={offsetX} y={offsetY}>
@@ -123,7 +112,7 @@ export const WallCanvas = () => {
             y={offsetY + wallH + 4}
             text={`${wall.width} × ${wall.height} cm  |  ${wall.surfaceArea} m²  |  netto ${wall.netArea} m²`}
             fontSize={10}
-            fill="#78716c"
+            fill={KONVA_COLORS.wallText}
           />
         </Layer>
       </Stage>

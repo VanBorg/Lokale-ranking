@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { RoomVertex } from '../types/room';
+import { MIN_CANVAS_ZOOM } from '../constants/canvas';
 import { verticesBoundingBox, ROOM_CANVAS_SCALE } from '../utils/geometry';
 import { useUiStore } from '../store/uiStore';
 
@@ -19,6 +20,8 @@ export function useAutoZoom(
   const setZoom = useUiStore((s) => s.setCanvasZoom);
   const setPan = useUiStore((s) => s.setCanvasPan);
 
+  // Do not depend on `vertices` — refitting on every drag/rescale fights the user and
+  // resets pan/zoom. Only when entering edit mode or the canvas size changes.
   useEffect(() => {
     if (!enabled || vertices.length < 3) return;
 
@@ -31,12 +34,12 @@ export function useAutoZoom(
     if (availW <= 0 || availH <= 0) return;
 
     const fitZoom = Math.min(availW / roomW, availH / roomH);
-    const clampedZoom = Math.min(Math.max(fitZoom, 0.3), 2.5);
+    const clampedZoom = Math.min(Math.max(fitZoom, MIN_CANVAS_ZOOM), 2.5);
 
     const panX = (canvasWidth - roomW * clampedZoom) / 2;
     const panY = (canvasHeight - roomH * clampedZoom) / 2;
 
     setZoom(clampedZoom);
     setPan({ x: panX, y: panY });
-  }, [vertices, canvasWidth, canvasHeight, enabled, setZoom, setPan]);
+  }, [canvasWidth, canvasHeight, enabled, setZoom, setPan]);
 }

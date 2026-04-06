@@ -6,8 +6,10 @@ import type { RoomVertex, RoomPreset } from '../types/room';
  */
 export function createPresetVertices(
   preset: RoomPreset,
-  W = 400,
-  L = 300,
+  /** Width in cm (default 10 m). */
+  W = 1000,
+  /** Length in cm (default 10 m). */
+  L = 1000,
 ): RoomVertex[] {
   switch (preset) {
     // ┌────────┐

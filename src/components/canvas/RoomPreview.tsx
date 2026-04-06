@@ -3,10 +3,16 @@ import type Konva from 'konva';
 import { Group, Line, Rect, Circle, Text } from 'react-konva';
 import type { RoomVertex, SubSpace } from '../../types/room';
 import type { Wall } from '../../types/wall';
-import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
+import {
+  verticesToKonvaPoints,
+  verticesBoundingBox,
+  ROOM_CANVAS_SCALE,
+  snapCmToGrid,
+} from '../../utils/geometry';
 import { isZonePlacementValid } from '../../utils/subSpaceContainment';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
 import { WIZARD_CANVAS_OVERLAY } from '../../utils/wizardCanvas';
+import { KONVA_COLORS } from '../../design/konva';
 
 interface RoomPreviewProps {
   x: number;
@@ -36,8 +42,6 @@ export const RoomPreview = ({
   const bb = verticesBoundingBox(vertices);
   const overlayLabel = WIZARD_CANVAS_OVERLAY[canvasMode];
 
-  const snap10 = (v: number) => Math.round(v / 10) * 10;
-
   return (
     <Group ref={groupRef} x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
       {/* Room outline */}
@@ -45,8 +49,8 @@ export const RoomPreview = ({
         listening={false}
         points={points}
         closed
-        fill="#fef3c7"
-        stroke="#f59e0b"
+        fill={KONVA_COLORS.previewFill}
+        stroke={KONVA_COLORS.previewStroke}
         strokeWidth={isOutlineMode ? 2.5 : 3}
         dash={isOutlineMode ? [8, 4] : undefined}
       />
@@ -71,7 +75,7 @@ export const RoomPreview = ({
             y={my + ny}
             text={label}
             fontSize={10}
-            fill="#9a3412"
+            fill={KONVA_COLORS.wallText}
             fontStyle="bold"
             align="center"
             offsetX={label.length * 2.5}
@@ -86,8 +90,8 @@ export const RoomPreview = ({
           x={v.x * ROOM_CANVAS_SCALE}
           y={v.y * ROOM_CANVAS_SCALE}
           radius={7}
-          fill="#f97316"
-          stroke="white"
+          fill={KONVA_COLORS.vertexHandle}
+          stroke={KONVA_COLORS.vertexHandleStroke}
           strokeWidth={2}
           draggable
           onDragEnd={(e) => {
@@ -98,8 +102,8 @@ export const RoomPreview = ({
             const absPos = e.target.getAbsolutePosition();
             const localX = (absPos.x - groupAbs.x) / scaleX;
             const localY = (absPos.y - groupAbs.y) / scaleY;
-            const cmX = snap10(localX / ROOM_CANVAS_SCALE);
-            const cmY = snap10(localY / ROOM_CANVAS_SCALE);
+            const cmX = snapCmToGrid(localX / ROOM_CANVAS_SCALE);
+            const cmY = snapCmToGrid(localY / ROOM_CANVAS_SCALE);
             onVertexDrag?.(i, { x: cmX, y: cmY });
             onVertexDragEnd?.();
           }}
@@ -116,8 +120,8 @@ export const RoomPreview = ({
             y={s.position.y * ROOM_CANVAS_SCALE}
             width={s.width * ROOM_CANVAS_SCALE}
             height={s.length * ROOM_CANVAS_SCALE}
-            fill="#fde68a"
-            stroke={isInvalid ? '#ef4444' : '#d97706'}
+            fill={KONVA_COLORS.zoneFill}
+            stroke={isInvalid ? KONVA_COLORS.zoneStrokeInvalid : KONVA_COLORS.zoneStroke}
             strokeWidth={isInvalid ? 2 : 1}
             opacity={isZoneMode ? 0.85 : 0.5}
             listening={isZoneMode}
@@ -134,8 +138,8 @@ export const RoomPreview = ({
               const absPos = e.target.getAbsolutePosition();
               const localX = (absPos.x - groupAbs.x) / scaleX;
               const localY = (absPos.y - groupAbs.y) / scaleY;
-              const cmX = localX / ROOM_CANVAS_SCALE;
-              const cmY = localY / ROOM_CANVAS_SCALE;
+              const cmX = snapCmToGrid(localX / ROOM_CANVAS_SCALE);
+              const cmY = snapCmToGrid(localY / ROOM_CANVAS_SCALE);
 
               const valid = isZonePlacementValid(cmX, cmY, s.width, s.length, vertices, subSpaces, s.id);
               if (valid) {
@@ -163,7 +167,7 @@ export const RoomPreview = ({
         y={8}
         fontSize={15}
         fontStyle="italic"
-        fill="#92400e"
+        fill={KONVA_COLORS.previewLabel}
       />
 
       {/* Overlay step label */}
@@ -175,7 +179,7 @@ export const RoomPreview = ({
           y={Math.max(40, bb.height * ROOM_CANVAS_SCALE - 36)}
           width={Math.max(120, bb.width * ROOM_CANVAS_SCALE - 16)}
           fontSize={11}
-          fill="#9a3412"
+          fill={KONVA_COLORS.previewOverlay}
         />
       )}
     </Group>

@@ -5,6 +5,7 @@ import { Button } from '../../../ui/Button';
 import { StepContainer } from '../../shared/StepContainer';
 import { StepHeader } from '../../shared/StepHeader';
 import { PresetPicker } from './PresetPicker';
+import { VertexEditor } from './VertexEditor';
 import type { RoomType } from '../../../../types/room';
 import { ROOM_TYPE_OPTIONS } from '../../../../utils/roomNaming';
 
@@ -22,7 +23,7 @@ export const Step1Shape = () => {
     <StepContainer>
       <StepHeader
         title="Vorm & Afmetingen"
-        description="Kies een basisvorm en pas de hoekpunten aan. Links op de plattegrond zie je een live voorbeeld — versleep de oranje cirkels om de vorm aan te passen."
+        description="Kies een basisvorm en pas de hoekpunten aan. Links op de plattegrond zie je een live voorbeeld — versleep de turquoise cirkels om de vorm aan te passen."
       />
 
       <Select
@@ -42,7 +43,7 @@ export const Step1Shape = () => {
       />
 
       <div className="flex flex-col gap-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Basisvorm
         </p>
         <PresetPicker />
@@ -50,6 +51,8 @@ export const Step1Shape = () => {
           ↻ Kwartslag draaien
         </Button>
       </div>
+
+      <VertexEditor />
 
       <Input
         id="dim-height"
@@ -61,11 +64,11 @@ export const Step1Shape = () => {
         onChange={(e) => setHeight(parseInt(e.target.value, 10) || 0)}
       />
 
-      <div className="rounded-lg bg-gray-50 p-3">
-        <p className="text-sm font-medium text-gray-700">
+      <div className="rounded-lg bg-app p-3">
+        <p className="text-sm font-medium text-white">
           Gedetecteerde wanden: <strong>{walls.length}</strong>
         </p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-muted">
           {walls.map((w) => w.label).join(' · ')}
         </p>
       </div>

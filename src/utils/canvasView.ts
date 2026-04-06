@@ -2,8 +2,7 @@ import type { Room, RoomVertex } from '../types/room';
 import { verticesBoundingBox, ROOM_CANVAS_SCALE } from './geometry';
 
 /**
- * World-space top-left for a draft preview so its bounding box is centred in the current
- * viewport (accounts for zoom + pan while the wizard is open).
+ * World-space top-left for a draft preview: room bbox centre = viewport centre.
  */
 export function getDraftPreviewWorldPosition(
   vertices: RoomVertex[],
@@ -15,12 +14,16 @@ export function getDraftPreviewWorldPosition(
   const bb = verticesBoundingBox(vertices);
   const w = bb.width * ROOM_CANVAS_SCALE;
   const h = bb.height * ROOM_CANVAS_SCALE;
-  const worldCx = (viewportW / 2 - pan.x) / zoom;
-  const worldCy = (viewportH / 2 - pan.y) / zoom;
-  return { x: worldCx - w / 2, y: worldCy - h / 2 };
+  const z = zoom > 0 ? zoom : 1;
+  const worldCx = (viewportW / 2 - pan.x) / z;
+  const worldCy = (viewportH / 2 - pan.y) / z;
+  return {
+    x: worldCx - w / 2,
+    y: worldCy - h / 2,
+  };
 }
 
-/** Pan values so the room's centre sits in the middle of the viewport (Konva stage transform). */
+/** Pan so the room's centre sits in the middle of the viewport. */
 export function panToCenterRoomOnViewport(
   room: Room,
   viewportW: number,

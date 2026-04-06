@@ -10,12 +10,12 @@ export const VertexEditor = () => {
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">
         Hoekpunten
       </p>
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="rounded-lg border border-line overflow-hidden">
         <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-gray-500">
+          <thead className="bg-brand-light/30 text-muted">
             <tr>
               <th className="px-2 py-1.5 text-left font-medium w-6"></th>
               <th className="px-2 py-1.5 text-left font-medium">X (cm)</th>
@@ -23,16 +23,16 @@ export const VertexEditor = () => {
               <th className="px-2 py-1.5 w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-white/10">
             {vertices.map((v, i) => (
-              <tr key={i} className="bg-white">
-                <td className="px-2 py-1 text-gray-400 font-medium">
+              <tr key={i} className="bg-app">
+                <td className="px-2 py-1 text-muted font-medium">
                   {String.fromCharCode(65 + i)}
                 </td>
                 <td className="px-1 py-1">
                   <input
                     type="number"
-                    className="w-full rounded border border-gray-200 px-1.5 py-0.5 text-xs focus:border-orange-400 focus:outline-none"
+                    className="w-full rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-white focus:border-brand focus:outline-none"
                     value={v.x}
                     min={0}
                     onChange={(e) =>
@@ -43,7 +43,7 @@ export const VertexEditor = () => {
                 <td className="px-1 py-1">
                   <input
                     type="number"
-                    className="w-full rounded border border-gray-200 px-1.5 py-0.5 text-xs focus:border-orange-400 focus:outline-none"
+                    className="w-full rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-white focus:border-brand focus:outline-none"
                     value={v.y}
                     min={0}
                     onChange={(e) =>
@@ -57,7 +57,7 @@ export const VertexEditor = () => {
                       type="button"
                       title="Punt toevoegen na dit punt"
                       onClick={() => addVertex(i)}
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700"
+                      className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-white/10 text-muted hover:bg-brand-light hover:text-brand"
                     >
                       +
                     </button>
@@ -66,7 +66,7 @@ export const VertexEditor = () => {
                       title="Punt verwijderen"
                       onClick={() => removeVertex(i)}
                       disabled={!canRemove}
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-white/10 text-muted hover:bg-red-950/80 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       ✕
                     </button>

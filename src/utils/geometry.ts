@@ -4,6 +4,83 @@ import type { RoomVertex } from '../types/room';
 /** Pixels per cm on the floor-plan canvas. */
 export const ROOM_CANVAS_SCALE = 0.72;
 
+/**
+ * Floor-plan grid step in cm — 2 m per cell (matches CanvasGrid: 200 * ROOM_CANVAS_SCALE px).
+ * Vertices and placements snap to this so rooms align with the grid.
+ */
+export const GRID_CELL_CM = 200;
+
+export function snapCmToGrid(cm: number): number {
+  return Math.round(cm / GRID_CELL_CM) * GRID_CELL_CM;
+}
+
+export function snapVertexCmToGrid(v: RoomVertex): RoomVertex {
+  return { x: snapCmToGrid(v.x), y: snapCmToGrid(v.y) };
+}
+
+export function snapVerticesCmToGrid(vertices: RoomVertex[]): RoomVertex[] {
+  return vertices.map(snapVertexCmToGrid);
+}
+
+/** Extra grid cells beyond the visible viewport (per axis, both sides). */
+export const GRID_BUFFER_CELLS = 24;
+
+/** Minimum grid size in cells (floor plan never smaller than this). */
+export const GRID_MIN_CELLS = 40;
+
+/** One grid cell in layer/world pixels (Konva coordinates). */
+export function gridCellWorldPx(scale: number = ROOM_CANVAS_SCALE): number {
+  return GRID_CELL_CM * scale;
+}
+
+export function snapWorldPxToGrid(px: number, scale: number = ROOM_CANVAS_SCALE): number {
+  const cell = gridCellWorldPx(scale);
+  return Math.round(px / cell) * cell;
+}
+
+/**
+ * Konva stage pan: equal partial grid cells left/right and top/bottom at the viewport edges.
+ */
+export function symmetricGridPanForViewport(
+  viewportW: number,
+  viewportH: number,
+  zoom: number,
+  cellWorldPx: number = gridCellWorldPx(),
+): { x: number; y: number } {
+  const z = zoom > 0 ? zoom : 1;
+  const worldW = viewportW / z;
+  const worldH = viewportH / z;
+  const rx = ((worldW % cellWorldPx) + cellWorldPx) % cellWorldPx;
+  const ry = ((worldH % cellWorldPx) + cellWorldPx) % cellWorldPx;
+  return {
+    x: (rx / 2) * z,
+    y: (ry / 2) * z,
+  };
+}
+
+/**
+ * Floor-plan grid dimensions in cells + cell size in world px (clampPan / CanvasGrid).
+ */
+export function computeGridExtentCells(
+  viewportW: number,
+  viewportH: number,
+  zoom: number,
+  bufferCells: number,
+  minCells: number,
+): { cols: number; rows: number; cellPx: number } {
+  const cellPx = gridCellWorldPx();
+  const z = zoom > 0 ? zoom : 1;
+  const vw = viewportW / z;
+  const vh = viewportH / z;
+  const cellsW = Math.ceil(vw / cellPx);
+  const cellsH = Math.ceil(vh / cellPx);
+  return {
+    cols: Math.max(minCells, cellsW + bufferCells),
+    rows: Math.max(minCells, cellsH + bufferCells),
+    cellPx,
+  };
+}
+
 export const cmToM = (cm: number): number => cm / 100;
 
 export const calcSurfaceArea = (widthCm: number, heightCm: number): number =>

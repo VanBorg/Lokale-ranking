@@ -38,7 +38,7 @@ function RulerTicks({
       blocks.push(
         <div
           key={metre}
-          className={`absolute flex items-center overflow-hidden ${isOrange ? 'bg-orange-100' : 'bg-white'}`}
+          className={`absolute flex items-center overflow-hidden ${isOrange ? 'bg-brand-light' : 'bg-app'}`}
           style={
             vertical
               ? { top: blockStart, left: 0, width: RULER_SIZE, height: blockWidth }
@@ -47,7 +47,7 @@ function RulerTicks({
         >
           {showLabel && (
             <span
-              className="select-none text-[9px] font-medium leading-none text-gray-500"
+              className="select-none text-[9px] font-medium leading-none text-muted"
               style={
                 vertical
                   ? { writingMode: 'vertical-lr', transform: 'rotate(180deg)', marginLeft: 4 }
@@ -74,13 +74,13 @@ export const CanvasRuler = ({ canvasWidth, canvasHeight, zoom, pan }: CanvasRule
     <>
       {/* Corner square */}
       <div
-        className="absolute z-20 bg-gray-100"
+        className="absolute z-20 bg-surface"
         style={{ top: 0, left: 0, width: RULER_SIZE, height: RULER_SIZE }}
       />
 
       {/* Horizontal ruler (top) */}
       <div
-        className="absolute z-10 overflow-hidden border-b border-gray-200"
+        className="absolute z-10 overflow-hidden border-b border-line"
         style={{ top: 0, left: RULER_SIZE, height: RULER_SIZE, width: canvasWidth - RULER_SIZE }}
       >
         <div className="relative h-full w-full">
@@ -95,7 +95,7 @@ export const CanvasRuler = ({ canvasWidth, canvasHeight, zoom, pan }: CanvasRule
 
       {/* Vertical ruler (left) */}
       <div
-        className="absolute z-10 overflow-hidden border-r border-gray-200"
+        className="absolute z-10 overflow-hidden border-r border-line"
         style={{ top: RULER_SIZE, left: 0, width: RULER_SIZE, height: canvasHeight - RULER_SIZE }}
       >
         <div className="relative h-full w-full">

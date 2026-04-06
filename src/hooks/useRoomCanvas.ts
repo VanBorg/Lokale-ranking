@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type Konva from 'konva';
-import { DEFAULT_CANVAS_ZOOM } from '../constants/canvas';
+import { MIN_CANVAS_ZOOM } from '../constants/canvas';
 import { useUiStore } from '../store/uiStore';
 
 interface UseRoomCanvasOptions {
@@ -8,6 +8,7 @@ interface UseRoomCanvasOptions {
   viewportHeight: number;
   contentWidth: number;
   contentHeight: number;
+  defaultZoom: number;
 }
 
 const clampPan = (
@@ -53,6 +54,7 @@ export const useRoomCanvas = ({
   viewportHeight,
   contentWidth,
   contentHeight,
+  defaultZoom,
 }: UseRoomCanvasOptions) => {
   const zoom = useUiStore((s) => s.canvasZoom);
   const pan = useUiStore((s) => s.canvasPan);
@@ -62,32 +64,30 @@ export const useRoomCanvas = ({
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
-      const scaleBy = 1.05;
+      const stage = e.target.getStage();
+      if (!stage) return;
+
+      const scaleBy = 1.08;
+      const oldZoom = zoom;
       const newZoom =
         e.evt.deltaY < 0
-          ? Math.min(zoom * scaleBy, 3)
-          : Math.max(zoom / scaleBy, 0.2);
-      const stage = e.target;
-      if (stage.nodeType === 'Stage') {
-        const center = {
-          x: viewportWidth / 2,
-          y: viewportHeight / 2,
-        };
-        const mousePointTo = {
-          x: (center.x - pan.x) / zoom,
-          y: (center.y - pan.y) / zoom,
-        };
-        const nextPan = {
-          x: center.x - mousePointTo.x * newZoom,
-          y: center.y - mousePointTo.y * newZoom,
-        };
-        setZoom(newZoom);
-        setPan(clampPan(nextPan, newZoom, viewportWidth, viewportHeight, contentWidth, contentHeight));
-      } else {
-        setZoom(newZoom);
-      }
+          ? Math.min(oldZoom * scaleBy, 3)
+          : Math.max(oldZoom / scaleBy, MIN_CANVAS_ZOOM);
+
+      const pointer = stage.getPointerPosition() ?? { x: viewportWidth / 2, y: viewportHeight / 2 };
+      const mousePointTo = {
+        x: (pointer.x - pan.x) / oldZoom,
+        y: (pointer.y - pan.y) / oldZoom,
+      };
+      const nextPan = {
+        x: pointer.x - mousePointTo.x * newZoom,
+        y: pointer.y - mousePointTo.y * newZoom,
+      };
+
+      setZoom(newZoom);
+      setPan(clampPan(nextPan, newZoom, viewportWidth, viewportHeight, contentWidth, contentHeight));
     },
-    [zoom, pan.x, pan.y, viewportWidth, viewportHeight, contentWidth, contentHeight, setZoom, setPan],
+    [zoom, pan, viewportWidth, viewportHeight, contentWidth, contentHeight, setZoom, setPan],
   );
 
   const handleDragEnd = useCallback(
@@ -110,18 +110,18 @@ export const useRoomCanvas = ({
   );
 
   const resetView = useCallback(() => {
-    setZoom(DEFAULT_CANVAS_ZOOM);
+    setZoom(defaultZoom);
     setPan(
       clampPan(
         { x: 0, y: 0 },
-        DEFAULT_CANVAS_ZOOM,
+        defaultZoom,
         viewportWidth,
         viewportHeight,
         contentWidth,
         contentHeight,
       ),
     );
-  }, [viewportWidth, viewportHeight, contentWidth, contentHeight, setZoom, setPan]);
+  }, [defaultZoom, viewportWidth, viewportHeight, contentWidth, contentHeight, setZoom, setPan]);
 
   return { zoom, pan, handleWheel, handleDragEnd, resetView };
 };

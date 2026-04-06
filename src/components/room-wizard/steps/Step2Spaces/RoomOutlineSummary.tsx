@@ -8,13 +8,13 @@ export const RoomOutlineSummary = () => {
   const area = calcPolygonArea(draft.vertices);
 
   return (
-    <div className="rounded-lg border border-orange-200 bg-orange-50/90 p-3 text-sm text-gray-800">
-      <p className="font-semibold text-gray-900">Kamer uit stap 1</p>
-      <p className="mt-1 text-gray-800">
+    <div className="rounded-lg border border-brand/35 bg-brand-light/70 p-3 text-sm text-muted">
+      <p className="font-semibold text-white">Kamer uit stap 1</p>
+      <p className="mt-1 text-muted">
         {PRESET_LABELS[draft.preset].label} · {draft.vertices.length} hoekpunten ·{' '}
         {area} m² · hoogte {draft.height} cm
       </p>
-      <p className="mt-2 text-xs leading-relaxed text-gray-600">
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         Vorm en buitenafmetingen staan vast. Wil je die wijzigen, ga naar{' '}
         <strong>Vorige</strong>. In deze stap plaats je alleen sub-ruimtes (zones) binnen
         deze kamer.
