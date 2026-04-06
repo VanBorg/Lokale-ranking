@@ -1,0 +1,15 @@
+@theme {
+  --color-brand: #2563eb;
+  --color-brand-dark: #1d4ed8;
+  --color-brand-light: #bfdbfe;
+
+  --color-app: #0f172a;
+  --color-surface: #1e293b;
+  --color-line: #334155;
+
+  --color-text: #ffffff;
+  --color-muted: #94a3b8;
+  --color-label: #cbd5e1;
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}

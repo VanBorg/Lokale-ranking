@@ -15,7 +15,7 @@ export const Input = ({ label, suffix, className = '', id, ...rest }: InputProps
     <div className="relative">
       <input
         id={id}
-        className={`w-full rounded-lg border border-line bg-app px-3 py-2 text-sm text-white placeholder:text-muted/50 focus:border-oranje focus:outline-none focus:ring-2 focus:ring-oranje/30 ${suffix ? 'pr-10' : ''} ${className}`}
+        className={`w-full rounded-lg border border-line bg-app px-3 py-2 text-sm text-white placeholder:text-muted/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 ${suffix ? 'pr-10' : ''} ${className}`}
         {...rest}
       />
       {suffix && (

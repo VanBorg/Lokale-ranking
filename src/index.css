@@ -1,15 +1,11 @@
 @import "tailwindcss";
-
-@theme {
-  --color-oranje: #f97316;
-  --color-oranje-dark: #ea580c;
-  --color-oranje-light: #fed7aa;
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-}
+@import "./design/tokens.css";
 
 body {
   margin: 0;
   overflow: hidden;
+  background-color: var(--color-app);
+  color: var(--color-muted);
 }
 
 #root {
