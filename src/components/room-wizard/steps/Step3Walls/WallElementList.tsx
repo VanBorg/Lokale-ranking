@@ -11,14 +11,14 @@ export const WallElementList = () => {
 
   return (
     <div>
-      <p className="mb-1 text-sm font-medium text-white">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
         Elementen op deze wand ({wall.elements.length})
       </p>
       <ul className="flex flex-col gap-1">
         {wall.elements.map((el) => (
           <li
             key={el.id}
-            className="flex items-center justify-between rounded-md bg-app px-2 py-1 text-xs text-muted"
+            className="flex items-center justify-between rounded-md border border-line bg-app px-3 py-1.5 text-xs text-muted"
           >
             <span>
               {el.type} — {el.width}×{el.height} cm @ ({el.x}, {el.y})

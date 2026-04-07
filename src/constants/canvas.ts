@@ -5,8 +5,8 @@ export const FLOOR_PLAN_CANVAS_H = 2200;
 /** Default zoom so rooms read clearly on screen (toolbar Reset uses the same). */
 export const DEFAULT_CANVAS_ZOOM = 1.25;
 
-/** Minimum zoom — must stay low enough to zoom out after placing rooms (wheel + toolbar). */
-export const MIN_CANVAS_ZOOM = 0.2;
+/** Minimum zoom — balance: not endless empty space, but map usually stays larger than viewport so pan works. */
+export const MIN_CANVAS_ZOOM = 0.35;
 
 import { KONVA_COLORS } from '../design/konva';
 

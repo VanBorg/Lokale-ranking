@@ -46,6 +46,10 @@ export const SpaceEditor = () => {
 
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-[11px] leading-snug text-muted">
+        Breedte = horizontaal op de plattegrond (links–rechts), lengte = verticaal (boven–onder).
+        Op de kaart staan de afmetingen in meters; die volgen dezelfde schaal als de wandlabels.
+      </p>
       {subSpaces.map((space) => (
         <div
           key={space.id}

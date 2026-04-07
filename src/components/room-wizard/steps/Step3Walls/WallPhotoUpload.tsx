@@ -32,7 +32,7 @@ export const WallPhotoUpload = () => {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-medium text-white">Foto&apos;s</p>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Foto&apos;s</p>
 
       {wall.photos.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">

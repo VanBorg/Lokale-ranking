@@ -10,7 +10,7 @@ import {
   ROOM_CANVAS_SCALE,
   rotateVertices90CW,
   rotateVertices90CCW,
-  snapCmToGrid,
+  snapCmForRoomVertex,
   snapVertexCmToGrid,
   snapVerticesCmToGrid,
 } from '../utils/geometry';
@@ -124,13 +124,10 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   loadPreset: (preset) =>
     set((state) => {
       const d = state.draft;
-      const bb = verticesBoundingBox(d.vertices);
+      // Always use default 10 m × 10 m footprint when picking a shape — not the previous
+      // polygon’s bbox (icon-based presets used to end up smaller than W×L and then shrank each switch).
       const vertices = snapVerticesCmToGrid(
-        createPresetVertices(
-          preset,
-          bb.width || DEFAULT_ROOM_W_CM,
-          bb.height || DEFAULT_ROOM_L_CM,
-        ),
+        createPresetVertices(preset, DEFAULT_ROOM_W_CM, DEFAULT_ROOM_L_CM),
       );
       const walls = generateWallsFromVertices(vertices, d.height);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
@@ -140,7 +137,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   updateVertex: (index, pos) =>
     set((state) => {
       const d = state.draft;
-      const snapped = { x: snapCmToGrid(pos.x), y: snapCmToGrid(pos.y) };
+      const snapped = { x: snapCmForRoomVertex(pos.x), y: snapCmForRoomVertex(pos.y) };
       const vertices = d.vertices.map((v, i) => (i === index ? snapped : v));
       const walls = generateWallsFromVertices(vertices, d.height);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);

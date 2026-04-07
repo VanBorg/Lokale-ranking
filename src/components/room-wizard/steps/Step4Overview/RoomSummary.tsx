@@ -23,7 +23,7 @@ export const RoomSummary = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg bg-brand-light/60 p-3">
+      <div className="rounded-lg border border-brand/30 bg-brand/10 p-3">
         <h3 className="text-base font-semibold text-white">
           {draft.name || 'Naamloze kamer'}
         </h3>
@@ -58,14 +58,14 @@ export const RoomSummary = () => {
       )}
 
       <div>
-        <p className="mb-1 text-sm font-medium text-white">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
           Wanden ({draft.walls.length})
         </p>
         <ul className="flex flex-col gap-1.5">
           {draft.walls.map((wall) => (
             <li
               key={wall.id}
-              className="rounded-md border border-white/10 bg-app px-3 py-2 text-xs text-muted"
+              className="rounded-md border border-line bg-app px-3 py-2 text-xs text-muted"
             >
               <span className="font-medium text-white">{wall.label}</span>
               {' — '}
@@ -92,7 +92,7 @@ export const RoomSummary = () => {
 
       {draft.subSpaces.length > 0 && (
         <div>
-          <p className="mb-1 text-sm font-medium text-white">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
             Sub-ruimtes ({draft.subSpaces.length})
           </p>
           <ul className="flex flex-col gap-1">

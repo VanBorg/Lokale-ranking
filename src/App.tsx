@@ -1,10 +1,14 @@
 import { AppLayout } from './components/layout/AppLayout';
 import { FloorPlanCanvas } from './components/canvas/FloorPlanCanvas';
 import { RoomWizard } from './components/room-wizard/RoomWizard';
+import { ThemeColorProbe } from './debug/ThemeColorProbe';
 
 export const App = () => (
-  <AppLayout
-    canvas={<FloorPlanCanvas />}
-    wizard={<RoomWizard />}
-  />
+  <>
+    <ThemeColorProbe />
+    <AppLayout
+      canvas={<FloorPlanCanvas />}
+      wizard={<RoomWizard />}
+    />
+  </>
 );

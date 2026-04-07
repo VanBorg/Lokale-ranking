@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useRoomStore } from '../../../../store/roomStore';
 import { PRESET_LABELS } from '../../../../utils/presets';
 import type { RoomPreset } from '../../../../types/room';
@@ -7,7 +8,7 @@ const PRESETS: RoomPreset[] = [
   't-shape', 'trapezoid', 'pentagon', 'hexagon',
 ];
 
-const PRESET_ICONS: Record<RoomPreset, JSX.Element> = {
+const PRESET_ICONS: Record<RoomPreset, ReactElement> = {
   rectangle: (
     <svg viewBox="0 0 40 40" className="w-8 h-8"><rect x="4" y="8" width="32" height="24" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2" rx="1"/></svg>
   ),
@@ -27,7 +28,7 @@ const PRESET_ICONS: Record<RoomPreset, JSX.Element> = {
     <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="10,8 30,8 36,32 4,32" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   pentagon: (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,8 36,8 36,28 20,36 4,28" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="20,8 36,16 36,36 4,36 4,16" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   hexagon: (
     <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,8 20,4 36,8 36,32 20,36 4,32" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>

@@ -2,24 +2,21 @@ import type { Room, RoomVertex } from '../types/room';
 import { verticesBoundingBox, ROOM_CANVAS_SCALE } from './geometry';
 
 /**
- * World-space top-left for a draft preview: room bbox centre = viewport centre.
+ * World-space top-left for the draft `RoomPreview` group so the room’s bounding-box centre
+ * sits at the centre of the floor-plan map (same coordinate system as grid width/height in px).
+ * Keeps the room stable when zooming/panning — unlike anchoring to the viewport centre.
  */
-export function getDraftPreviewWorldPosition(
+export function getDraftPositionCenteredOnMap(
   vertices: RoomVertex[],
-  viewportW: number,
-  viewportH: number,
-  zoom: number,
-  pan: { x: number; y: number },
+  mapWidthPx: number,
+  mapHeightPx: number,
 ): { x: number; y: number } {
   const bb = verticesBoundingBox(vertices);
-  const w = bb.width * ROOM_CANVAS_SCALE;
-  const h = bb.height * ROOM_CANVAS_SCALE;
-  const z = zoom > 0 ? zoom : 1;
-  const worldCx = (viewportW / 2 - pan.x) / z;
-  const worldCy = (viewportH / 2 - pan.y) / z;
+  const cx = ((bb.minX + bb.maxX) / 2) * ROOM_CANVAS_SCALE;
+  const cy = ((bb.minY + bb.maxY) / 2) * ROOM_CANVAS_SCALE;
   return {
-    x: worldCx - w / 2,
-    y: worldCy - h / 2,
+    x: mapWidthPx / 2 - cx,
+    y: mapHeightPx / 2 - cy,
   };
 }
 

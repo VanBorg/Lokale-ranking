@@ -15,6 +15,7 @@ export const KONVA_COLORS = {
   zoneFill: '#bfdbfe',
   zoneStroke: '#3b82f6',
   zoneStrokeInvalid: '#ef4444',
+  zoneLabel: '#1e3a8a',
 
   wallFill: '#f8fafc',
   wallStroke: '#cbd5e1',

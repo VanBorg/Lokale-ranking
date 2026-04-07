@@ -8,7 +8,7 @@ export const RoomOutlineSummary = () => {
   const area = calcPolygonArea(draft.vertices);
 
   return (
-    <div className="rounded-lg border border-brand/35 bg-brand-light/70 p-3 text-sm text-muted">
+    <div className="rounded-lg border border-brand/30 bg-brand/10 p-3 text-sm text-muted">
       <p className="font-semibold text-white">Kamer uit stap 1</p>
       <p className="mt-1 text-muted">
         {PRESET_LABELS[draft.preset].label} · {draft.vertices.length} hoekpunten ·{' '}
