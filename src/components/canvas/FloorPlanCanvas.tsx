@@ -4,9 +4,8 @@ import { DEFAULT_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../../constants/canvas';
 import { useUiStore } from '../../store/uiStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useRoomStore } from '../../store/roomStore';
-import { useRoomCanvas } from '../../hooks/useRoomCanvas';
-import { useAutoZoom } from '../../hooks/useAutoZoom';
-import { getDraftPreviewWorldPosition, panToCenterRoomOnViewport } from '../../utils/canvasView';
+import { clampStagePan, useRoomCanvas } from '../../hooks/useRoomCanvas';
+import { getDraftPositionCenteredOnMap, panToCenterRoomOnViewport } from '../../utils/canvasView';
 import { getWizardCanvasMode } from '../../utils/wizardCanvas';
 import { CanvasGrid } from './CanvasGrid';
 import { CanvasToolbar } from './CanvasToolbar';
@@ -17,31 +16,50 @@ import {
   GRID_BUFFER_CELLS,
   GRID_MIN_CELLS,
   computeGridExtentCells,
-  symmetricGridPanForViewport,
 } from '../../utils/geometry';
+
+/** Same pan as when opening the room wizard: virtual map centred in the viewport. */
+function panFloorPlanMapCentered(
+  viewportW: number,
+  viewportH: number,
+  zoom: number,
+  gridW: number,
+  gridH: number,
+) {
+  return clampStagePan(
+    {
+      x: viewportW / 2 - (gridW / 2) * zoom,
+      y: viewportH / 2 - (gridH / 2) * zoom,
+    },
+    zoom,
+    viewportW,
+    viewportH,
+    gridW,
+    gridH,
+  );
+}
 
 export const FloorPlanCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appliedInitialZoomRef = useRef(false);
-  const pendingPreviewSyncRef = useRef(false);
+  const draftPreviewInitRef = useRef(false);
   const [size, setSize] = useState({ width: 800, height: 600 });
 
   const zoomValue = useUiStore((s) => s.canvasZoom);
   const defaultZoom =
     size.height > 0 ? size.height / (1600 * ROOM_CANVAS_SCALE) : DEFAULT_CANVAS_ZOOM;
   // Pan clamp bounds must not track live zoom — otherwise content size jumps every wheel step.
-  const { cols: gridCols, rows: _gridRows, cellPx: gridCellSize } = computeGridExtentCells(
+  const { cols: gridCols, rows: gridRows, cellPx: gridCellSize } = computeGridExtentCells(
     size.width,
     size.height,
     MIN_CANVAS_ZOOM,
     GRID_BUFFER_CELLS,
     GRID_MIN_CELLS,
   );
-  const gridRows = 26; // 52 m visible at max zoom-out (3× the 16 m default view)
   const gridWidth = gridCols * gridCellSize;
   const gridHeight = gridRows * gridCellSize;
 
-  const { zoom, pan, handleWheel, handleDragEnd } = useRoomCanvas({
+  const { zoom, pan, handleWheel, handleDragMove, handleDragEnd } = useRoomCanvas({
     viewportWidth: size.width,
     viewportHeight: size.height,
     contentWidth: gridWidth,
@@ -64,29 +82,22 @@ export const FloorPlanCanvas = () => {
     () => getWizardCanvasMode(wizardOpen, activeStep),
     [wizardOpen, activeStep],
   );
-  const isSubSpaceLayoutStep = wizardCanvasMode === 'sub-space-layout';
+  /** Pan the canvas everywhere except step 2 (zone layout), where the stage must stay fixed. */
+  const stageDraggable = wizardCanvasMode !== 'sub-space-layout';
+
+  const [isStagePanning, setIsStagePanning] = useState(false);
 
   const rooms = useProjectStore((s) => s.project.rooms);
   const draft = useRoomStore((s) => s.draft);
   const editingRoomId = useRoomStore((s) => s.editingRoomId);
   const updateVertex = useRoomStore((s) => s.updateVertex);
   const updateSubSpace = useRoomStore((s) => s.updateSubSpace);
-  const shouldAutoZoom = wizardCanvasMode === 'room-outline' && Boolean(editingRoomId);
 
-  useAutoZoom(draft.vertices, size.width, size.height, shouldAutoZoom);
-
-  // Draft room: keep it centred in the viewport whenever zoom/pan/size change (clampPan
-  // after zoom can move the view — without this, the room drifts). Vertex drags do not
-  // change zoom/pan, so the preview stays put while dragging handles.
+  /**
+   * Fixed Konva world position for the draft room (same coordinate system as `Room.position`).
+   * Must NOT be recomputed on pan/zoom — that used to pin the preview to the viewport centre.
+   */
   const [draftPreviewPos, setDraftPreviewPos] = useState({ x: 0, y: 0 });
-
-  const readViewportSize = useCallback(() => {
-    const el = containerRef.current;
-    const r = el?.getBoundingClientRect();
-    const vw = r && r.width > 0 ? r.width : size.width;
-    const vh = r && r.height > 0 ? r.height : size.height;
-    return { vw, vh };
-  }, [size.width, size.height]);
 
   // Sync state width/height with the real canvas pane (left column only — not the whole window).
   useLayoutEffect(() => {
@@ -99,32 +110,37 @@ export const FloorPlanCanvas = () => {
   }, []);
 
   useLayoutEffect(() => {
-    if (!wizardOpen) return;
-    if (shouldAutoZoom) {
-      pendingPreviewSyncRef.current = true;
-      return;
+    if (!wizardOpen) {
+      draftPreviewInitRef.current = false;
+      setDraftPreviewPos({ x: 0, y: 0 });
     }
-    const { vw, vh } = readViewportSize();
-    setDraftPreviewPos(getDraftPreviewWorldPosition(draft.vertices, vw, vh, zoom, pan));
-  }, [
-    wizardOpen,
-    shouldAutoZoom,
-    readViewportSize,
-    size.width,
-    size.height,
-    zoom,
-    pan.x,
-    pan.y,
-    draft.preset,
-  ]);
+  }, [wizardOpen]);
 
   useLayoutEffect(() => {
-    if (!wizardOpen) return;
-    if (!pendingPreviewSyncRef.current) return;
-    const { vw, vh } = readViewportSize();
-    setDraftPreviewPos(getDraftPreviewWorldPosition(draft.vertices, vw, vh, zoom, pan));
-    pendingPreviewSyncRef.current = false;
-  }, [wizardOpen, readViewportSize, zoom, pan.x, pan.y, size.width, size.height]);
+    if (!wizardOpen || draftPreviewInitRef.current) return;
+    draftPreviewInitRef.current = true;
+
+    const existing = editingRoomId ? rooms.find((r) => r.id === editingRoomId) : undefined;
+    if (existing) {
+      setDraftPreviewPos({ ...existing.position });
+    } else {
+      setDraftPreviewPos(
+        getDraftPositionCenteredOnMap(draft.vertices, gridWidth, gridHeight),
+      );
+      const z = useUiStore.getState().canvasZoom;
+      setCanvasPan(panFloorPlanMapCentered(size.width, size.height, z, gridWidth, gridHeight));
+    }
+  }, [
+    wizardOpen,
+    editingRoomId,
+    rooms,
+    draft.vertices,
+    gridWidth,
+    gridHeight,
+    size.width,
+    size.height,
+    setCanvasPan,
+  ]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -141,12 +157,28 @@ export const FloorPlanCanvas = () => {
     if (zoomValue !== DEFAULT_CANVAS_ZOOM) return;
     if (size.width <= 0 || size.height <= 0) return;
     setCanvasZoom(defaultZoom);
-    setCanvasPan(symmetricGridPanForViewport(size.width, size.height, defaultZoom));
+    setCanvasPan(
+      panFloorPlanMapCentered(size.width, size.height, defaultZoom, gridWidth, gridHeight),
+    );
     appliedInitialZoomRef.current = true;
-  }, [defaultZoom, size.width, size.height, zoomValue, setCanvasZoom, setCanvasPan]);
+  }, [
+    defaultZoom,
+    size.width,
+    size.height,
+    gridWidth,
+    gridHeight,
+    zoomValue,
+    setCanvasZoom,
+    setCanvasPan,
+  ]);
 
-  const prevRoomCountRef = useRef(0);
+  /** Skip first run so persisted rooms are not mistaken for a live 0→1 / N→N+1 transition. */
+  const prevRoomCountRef = useRef<number | null>(null);
   useEffect(() => {
+    if (prevRoomCountRef.current === null) {
+      prevRoomCountRef.current = rooms.length;
+      return;
+    }
     const prev = prevRoomCountRef.current;
     prevRoomCountRef.current = rooms.length;
     if (rooms.length !== 1 || prev !== 0) return;
@@ -156,10 +188,14 @@ export const FloorPlanCanvas = () => {
     setCanvasPan(panToCenterRoomOnViewport(room, size.width, size.height, defaultZoom));
   }, [rooms, size.width, size.height, defaultZoom, setCanvasPan, setCanvasZoom]);
 
-  const prevRoomIdsRef = useRef<string[]>([]);
+  const prevRoomIdsRef = useRef<string[] | null>(null);
   useEffect(() => {
-    const prevIds = prevRoomIdsRef.current;
     const nextIds = rooms.map((room) => room.id);
+    if (prevRoomIdsRef.current === null) {
+      prevRoomIdsRef.current = nextIds;
+      return;
+    }
+    const prevIds = prevRoomIdsRef.current;
     prevRoomIdsRef.current = nextIds;
     if (nextIds.length <= prevIds.length) return;
     if (prevIds.length === 0 && nextIds.length === 1) return;
@@ -173,12 +209,25 @@ export const FloorPlanCanvas = () => {
     if (rooms.length === 1 && rooms[0]) {
       setCanvasPan(panToCenterRoomOnViewport(rooms[0], size.width, size.height, defaultZoom));
     } else {
-      setCanvasPan(symmetricGridPanForViewport(size.width, size.height, defaultZoom));
+      setCanvasPan(
+        panFloorPlanMapCentered(size.width, size.height, defaultZoom, gridWidth, gridHeight),
+      );
     }
-  }, [rooms, size.width, size.height, defaultZoom, setCanvasPan, setCanvasZoom]);
+  }, [rooms, size.width, size.height, gridWidth, gridHeight, defaultZoom, setCanvasPan, setCanvasZoom]);
 
   return (
-    <div ref={containerRef} className="h-full w-full bg-app" style={{ cursor: isSubSpaceLayoutStep ? 'default' : 'grab' }}>
+    <div
+      ref={containerRef}
+      data-debug-floor-canvas
+      className="h-full w-full bg-app"
+      style={{
+        cursor: !stageDraggable
+          ? 'default'
+          : isStagePanning
+            ? 'grabbing'
+            : 'grab',
+      }}
+    >
       <Stage
         width={size.width}
         height={size.height}
@@ -186,9 +235,19 @@ export const FloorPlanCanvas = () => {
         scaleY={zoom}
         x={pan.x}
         y={pan.y}
-        draggable={!isSubSpaceLayoutStep}
+        draggable={stageDraggable}
         onWheel={handleWheel}
-        onDragEnd={handleDragEnd}
+        onDragStart={(e) => {
+          const t = e.target;
+          // Hoeken/zones zijn eigen draggable nodes; alleen plattegrond-pannen toont "grabbing".
+          if (t.draggable() && t !== t.getStage()) return;
+          setIsStagePanning(true);
+        }}
+        onDragMove={handleDragMove}
+        onDragEnd={(e) => {
+          handleDragEnd(e);
+          setIsStagePanning(false);
+        }}
       >
         <Layer>
           {gridVisible && (

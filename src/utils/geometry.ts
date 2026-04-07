@@ -5,8 +5,8 @@ import type { RoomVertex } from '../types/room';
 export const ROOM_CANVAS_SCALE = 0.72;
 
 /**
- * Floor-plan grid step in cm — 2 m per cell (matches CanvasGrid: 200 * ROOM_CANVAS_SCALE px).
- * Vertices and placements snap to this so rooms align with the grid.
+ * Floor-plan background grid step in cm — 2 m per cell (CanvasGrid: 200 * ROOM_CANVAS_SCALE px).
+ * Used for drawing the grid and viewport pan alignment only, not for room shape vertices.
  */
 export const GRID_CELL_CM = 200;
 
@@ -14,19 +14,27 @@ export function snapCmToGrid(cm: number): number {
   return Math.round(cm / GRID_CELL_CM) * GRID_CELL_CM;
 }
 
+/**
+ * Room outline vertices: snap to whole centimetres so dimensions stay realistic and are not
+ * locked to the 2 m background grid.
+ */
+export function snapCmForRoomVertex(cm: number): number {
+  return Math.round(cm);
+}
+
 export function snapVertexCmToGrid(v: RoomVertex): RoomVertex {
-  return { x: snapCmToGrid(v.x), y: snapCmToGrid(v.y) };
+  return { x: snapCmForRoomVertex(v.x), y: snapCmForRoomVertex(v.y) };
 }
 
 export function snapVerticesCmToGrid(vertices: RoomVertex[]): RoomVertex[] {
   return vertices.map(snapVertexCmToGrid);
 }
 
-/** Extra grid cells beyond the visible viewport (per axis, both sides). */
-export const GRID_BUFFER_CELLS = 24;
+/** Extra grid cells beyond the visible viewport at min zoom (per axis, both sides). */
+export const GRID_BUFFER_CELLS = 8;
 
-/** Minimum grid size in cells (floor plan never smaller than this). */
-export const GRID_MIN_CELLS = 40;
+/** Minimum grid size in cells — keeps the virtual map smaller; still room to pan past edges. */
+export const GRID_MIN_CELLS = 18;
 
 /** One grid cell in layer/world pixels (Konva coordinates). */
 export function gridCellWorldPx(scale: number = ROOM_CANVAS_SCALE): number {
@@ -82,6 +90,9 @@ export function computeGridExtentCells(
 }
 
 export const cmToM = (cm: number): number => cm / 100;
+
+/** Whole centimetres from metres (for UI input). */
+export const mToCm = (m: number): number => Math.round(m * 100);
 
 export const calcSurfaceArea = (widthCm: number, heightCm: number): number =>
   parseFloat((cmToM(widthCm) * cmToM(heightCm)).toFixed(2));
