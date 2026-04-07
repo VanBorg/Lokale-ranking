@@ -8,6 +8,7 @@ import { PresetPicker } from './PresetPicker';
 import { WallLengthEditor } from './WallLengthEditor';
 import type { RoomType } from '../../../../types/room';
 import { ROOM_TYPE_OPTIONS } from '../../../../utils/roomNaming';
+import { cmToM, mToCm } from '../../../../utils/geometry';
 
 export const Step1Shape = () => {
   const name = useRoomStore((s) => s.draft.name);
@@ -60,11 +61,16 @@ export const Step1Shape = () => {
       <Input
         id="dim-height"
         label="Hoogte"
-        suffix="cm"
+        suffix="m"
         type="number"
-        min={10}
-        value={height}
-        onChange={(e) => setHeight(parseInt(e.target.value, 10) || 0)}
+        min={0.1}
+        step={0.01}
+        value={cmToM(height)}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          if (!Number.isFinite(v)) return;
+          setHeight(Math.max(10, mToCm(v)));
+        }}
       />
     </StepContainer>
   );

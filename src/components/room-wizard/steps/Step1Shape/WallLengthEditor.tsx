@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRoomStore } from '../../../../store/roomStore';
+import { cmToM, mToCm } from '../../../../utils/geometry';
 
 export const WallLengthEditor = () => {
   const walls = useRoomStore((s) => s.draft.walls);
@@ -10,7 +11,8 @@ export const WallLengthEditor = () => {
   const toggleLock = (id: string) => {
     setLockedWalls((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -41,7 +43,7 @@ export const WallLengthEditor = () => {
       <div className="flex flex-col gap-1">
         {walls.map((wall, i) => {
           const locked = lockedWalls.has(wall.id);
-          const lengthM = (wall.width / 100).toFixed(2);
+          const lengthM = cmToM(wall.width);
           return (
             <div
               key={wall.id}
@@ -60,12 +62,17 @@ export const WallLengthEditor = () => {
                 <input
                   type="number"
                   disabled={locked}
-                  value={Math.round(wall.width)}
-                  min={10}
-                  onChange={(e) => handleLengthChange(i, parseInt(e.target.value, 10) || 0)}
-                  className="w-16 rounded border border-line bg-surface px-1.5 py-0.5 text-center text-xs text-white focus:border-brand focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+                  value={lengthM}
+                  min={0.1}
+                  step={0.01}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!Number.isFinite(v)) return;
+                    handleLengthChange(i, mToCm(v));
+                  }}
+                  className="w-20 rounded border border-line bg-surface px-1.5 py-0.5 text-center text-xs text-white focus:border-brand focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
                 />
-                <span className="text-xs text-muted">cm</span>
+                <span className="text-xs text-muted">m</span>
                 <button
                   type="button"
                   disabled={locked}
@@ -75,7 +82,6 @@ export const WallLengthEditor = () => {
                   +
                 </button>
               </div>
-              <span className="text-xs text-muted shrink-0">{lengthM} m</span>
               <button
                 type="button"
                 onClick={() => toggleLock(wall.id)}
