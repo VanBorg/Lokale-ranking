@@ -5,7 +5,7 @@ import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
 import { useProjectStore } from '../../store/projectStore';
 import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
-import { KONVA_COLORS, ROOM_TYPE_ICONS } from '../../design/konva';
+import { KONVA_COLORS, KONVA_EMOJI_FONT_FAMILY, ROOM_TYPE_ICONS } from '../../design/konva';
 
 interface RoomBlockProps {
   room: Room;
@@ -61,7 +61,7 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
         y={iconCy - iconBoxSize / 2}
         width={iconBoxSize}
         height={iconBoxSize}
-        fill="rgba(0,0,0,0.68)"
+        fill="rgba(51,65,85,0.95)"
         cornerRadius={18}
       />
       <Text
@@ -72,8 +72,12 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
         height={iconBoxSize}
         text={icon}
         fontSize={52}
+        fontFamily={KONVA_EMOJI_FONT_FAMILY}
         align="center"
         verticalAlign="middle"
+        shadowColor="rgba(255,255,255,0.35)"
+        shadowBlur={6}
+        shadowOffset={{ x: 0, y: 0 }}
       />
     </Group>
   );

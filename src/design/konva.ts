@@ -1,10 +1,14 @@
 import type { RoomType } from '../types/room';
 
+/** Ensures colour emoji render on Windows instead of invisible glyphs with a text font. */
+export const KONVA_EMOJI_FONT_FAMILY =
+  '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+
 export const ROOM_TYPE_ICONS: Record<RoomType, string> = {
   bathroom: '🛁',
-  kitchen:  '🍳',
-  bedroom:  '🛏',
-  living:   '🛋',
+  kitchen:  '🍽️',
+  bedroom:  '🌙',
+  living:   '📺',
   hallway:  '🚪',
   toilet:   '🚽',
   laundry:  '🧺',

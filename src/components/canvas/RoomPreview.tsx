@@ -11,7 +11,7 @@ import {
 } from '../../utils/geometry';
 import { getZoneWallSnapPosition, isZonePlacementValid } from '../../utils/subSpaceContainment';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
-import { KONVA_COLORS, ROOM_TYPE_ICONS } from '../../design/konva';
+import { KONVA_COLORS, KONVA_EMOJI_FONT_FAMILY, ROOM_TYPE_ICONS } from '../../design/konva';
 import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
 
@@ -466,7 +466,7 @@ export const RoomPreview = ({
         y={iconCy - iconBoxSize / 2}
         width={iconBoxSize}
         height={iconBoxSize}
-        fill="rgba(0,0,0,0.68)"
+        fill="rgba(51,65,85,0.95)"
         cornerRadius={18}
       />
       <Text
@@ -477,8 +477,12 @@ export const RoomPreview = ({
         height={iconBoxSize}
         text={icon}
         fontSize={52}
+        fontFamily={KONVA_EMOJI_FONT_FAMILY}
         align="center"
         verticalAlign="middle"
+        shadowColor="rgba(255,255,255,0.35)"
+        shadowBlur={6}
+        shadowOffset={{ x: 0, y: 0 }}
       />
 
     </Group>
