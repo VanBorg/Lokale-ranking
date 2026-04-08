@@ -41,11 +41,20 @@ function panFloorPlanMapCentered(
 
 export const FloorPlanCanvas = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const appliedInitialZoomRef = useRef(false);
+  /** Last zoom we applied from viewport auto-fit; used to detect manual zoom vs resize. */
+  const lastAutoZoomRef = useRef<number | null>(null);
   const draftPreviewInitRef = useRef(false);
   const [size, setSize] = useState({ width: 800, height: 600 });
 
   const zoomValue = useUiStore((s) => s.canvasZoom);
+
+  useEffect(() => {
+    if (lastAutoZoomRef.current === null) return;
+    if (Math.abs(zoomValue - lastAutoZoomRef.current) > 0.02) {
+      lastAutoZoomRef.current = null;
+    }
+  }, [zoomValue]);
+
   const defaultZoom =
     size.height > 0 ? size.height / (1600 * ROOM_CANVAS_SCALE) : DEFAULT_CANVAS_ZOOM;
   // Pan clamp bounds must not track live zoom — otherwise content size jumps every wheel step.
@@ -78,6 +87,12 @@ export const FloorPlanCanvas = () => {
   const activeStep = useUiStore((s) => s.activeStep);
   const gridVisible = useUiStore((s) => s.gridVisible);
 
+  const rooms = useProjectStore((s) => s.project.rooms);
+  const draft = useRoomStore((s) => s.draft);
+  const editingRoomId = useRoomStore((s) => s.editingRoomId);
+  const updateVertex = useRoomStore((s) => s.updateVertex);
+  const updateSubSpace = useRoomStore((s) => s.updateSubSpace);
+  const zonePlacementMode = useRoomStore((s) => s.draft.zonePlacementMode);
   const wizardCanvasMode = useMemo(
     () => getWizardCanvasMode(wizardOpen, activeStep),
     [wizardOpen, activeStep],
@@ -87,27 +102,11 @@ export const FloorPlanCanvas = () => {
 
   const [isStagePanning, setIsStagePanning] = useState(false);
 
-  const rooms = useProjectStore((s) => s.project.rooms);
-  const draft = useRoomStore((s) => s.draft);
-  const editingRoomId = useRoomStore((s) => s.editingRoomId);
-  const updateVertex = useRoomStore((s) => s.updateVertex);
-  const updateSubSpace = useRoomStore((s) => s.updateSubSpace);
-
   /**
    * Fixed Konva world position for the draft room (same coordinate system as `Room.position`).
    * Must NOT be recomputed on pan/zoom — that used to pin the preview to the viewport centre.
    */
   const [draftPreviewPos, setDraftPreviewPos] = useState({ x: 0, y: 0 });
-
-  // Sync state width/height with the real canvas pane (left column only — not the whole window).
-  useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) {
-      setSize({ width: r.width, height: r.height });
-    }
-  }, []);
 
   useLayoutEffect(() => {
     if (!wizardOpen) {
@@ -146,31 +145,41 @@ export const FloorPlanCanvas = () => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
-      setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      const w = entry.contentRect.width;
+      const h = entry.contentRect.height;
+      setSize({ width: w, height: h });
+      if (w <= 0 || h <= 0) return;
+
+      const st = useUiStore.getState();
+      if (st.wizardOpen) return;
+
+      const dz = h / (1600 * ROOM_CANVAS_SCALE);
+      const { cols, rows, cellPx } = computeGridExtentCells(
+        w,
+        h,
+        MIN_CANVAS_ZOOM,
+        GRID_BUFFER_CELLS,
+        GRID_MIN_CELLS,
+      );
+      const gw = cols * cellPx;
+      const gh = rows * cellPx;
+      const zNow = st.canvasZoom;
+
+      const storeStillBootstrap = zNow === DEFAULT_CANVAS_ZOOM;
+      const stillOnAutoZoom =
+        lastAutoZoomRef.current !== null &&
+        Math.abs(zNow - lastAutoZoomRef.current) < 0.008;
+
+      if (storeStillBootstrap || stillOnAutoZoom) {
+        const panNext = panFloorPlanMapCentered(w, h, dz, gw, gh);
+        setCanvasZoom(dz);
+        setCanvasPan(panNext);
+        lastAutoZoomRef.current = dz;
+      }
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (appliedInitialZoomRef.current) return;
-    if (zoomValue !== DEFAULT_CANVAS_ZOOM) return;
-    if (size.width <= 0 || size.height <= 0) return;
-    setCanvasZoom(defaultZoom);
-    setCanvasPan(
-      panFloorPlanMapCentered(size.width, size.height, defaultZoom, gridWidth, gridHeight),
-    );
-    appliedInitialZoomRef.current = true;
-  }, [
-    defaultZoom,
-    size.width,
-    size.height,
-    gridWidth,
-    gridHeight,
-    zoomValue,
-    setCanvasZoom,
-    setCanvasPan,
-  ]);
+  }, [setCanvasZoom, setCanvasPan]);
 
   /** Skip first run so persisted rooms are not mistaken for a live 0→1 / N→N+1 transition. */
   const prevRoomCountRef = useRef<number | null>(null);
@@ -186,6 +195,7 @@ export const FloorPlanCanvas = () => {
     if (!room) return;
     setCanvasZoom(defaultZoom);
     setCanvasPan(panToCenterRoomOnViewport(room, size.width, size.height, defaultZoom));
+    lastAutoZoomRef.current = defaultZoom;
   }, [rooms, size.width, size.height, defaultZoom, setCanvasPan, setCanvasZoom]);
 
   const prevRoomIdsRef = useRef<string[] | null>(null);
@@ -208,10 +218,12 @@ export const FloorPlanCanvas = () => {
     setCanvasZoom(defaultZoom);
     if (rooms.length === 1 && rooms[0]) {
       setCanvasPan(panToCenterRoomOnViewport(rooms[0], size.width, size.height, defaultZoom));
+      lastAutoZoomRef.current = null;
     } else {
       setCanvasPan(
         panFloorPlanMapCentered(size.width, size.height, defaultZoom, gridWidth, gridHeight),
       );
+      lastAutoZoomRef.current = defaultZoom;
     }
   }, [rooms, size.width, size.height, gridWidth, gridHeight, defaultZoom, setCanvasPan, setCanvasZoom]);
 
@@ -273,8 +285,9 @@ export const FloorPlanCanvas = () => {
               subSpaces={draft.subSpaces}
               name={draft.name}
               canvasMode={wizardCanvasMode}
+              zonePlacementMode={zonePlacementMode}
               onVertexDrag={(index, pos) => updateVertex(index, pos)}
-              onZoneDrag={(id, pos) => updateSubSpace(id, { position: pos })}
+              onZoneChange={(id, updates) => updateSubSpace(id, updates)}
             />
           </Layer>
         )}

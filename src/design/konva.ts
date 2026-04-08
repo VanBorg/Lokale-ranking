@@ -1,28 +1,28 @@
 export const KONVA_COLORS = {
-  roomFill: 'rgba(37, 99, 235, 0.32)',
-  roomStroke: '#2563eb',
-  roomLabel: '#93c5fd',
-  roomLabelSub: '#60a5fa',
+  roomFill: 'rgba(42, 169, 237, 0.32)',
+  roomStroke: '#2aa9ed',
+  roomLabel: '#89d9fa',
+  roomLabelSub: '#5cc8f5',
 
-  previewFill: 'rgba(37, 99, 235, 0.26)',
-  previewStroke: '#3b82f6',
-  previewLabel: '#93c5fd',
-  previewOverlay: '#1e40af',
+  previewFill: 'rgba(42, 169, 237, 0.26)',
+  previewStroke: '#2aa9ed',
+  previewLabel: '#89d9fa',
+  previewOverlay: '#135d8c',
 
-  vertexHandle: '#2563eb',
+  vertexHandle: '#2aa9ed',
   vertexHandleStroke: '#ffffff',
 
-  zoneFill: '#bfdbfe',
-  zoneStroke: '#3b82f6',
+  zoneFill: '#b8ecfd',
+  zoneStroke: '#2aa9ed',
   zoneStrokeInvalid: '#ef4444',
-  zoneLabel: '#1e3a8a',
+  zoneLabel: '#0f4a6e',
 
   wallFill: '#f8fafc',
   wallStroke: '#cbd5e1',
   wallText: '#64748b',
 
   wallElementColors: {
-    door: '#1e40af',
+    door: '#135d8c',
     window: '#0ea5e9',
     radiator: '#ef4444',
     outlet: '#f59e0b',

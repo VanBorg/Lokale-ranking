@@ -1,20 +1,13 @@
-import { StepContainer } from '../../shared/StepContainer';
-import { StepHeader } from '../../shared/StepHeader';
-import { SpaceEditor } from './SpaceEditor';
-import { RoomOutlineSummary } from './RoomOutlineSummary';
+import { Step2Canvas } from './Step2Canvas';
+import { ZonePanel } from './ZonePanel';
 
 export const Step2Spaces = () => (
-  <StepContainer>
-    <StepHeader
-      title="Zones in de kamer"
-      description="Stap 1 heeft de buitenkant van de kamer vastgelegd. Hier plaats je sub-ruimtes (zones) binnen die kamer. Sleep ze op de plattegrond links naar de juiste plek."
-    />
-    <RoomOutlineSummary />
-    <div className="mt-1 border-t border-line pt-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-        Sub-ruimtes
-      </p>
-      <SpaceEditor />
+  <div className="flex h-full w-full overflow-hidden">
+    <div className="relative flex-[3] bg-app">
+      <Step2Canvas />
     </div>
-  </StepContainer>
+    <div className="flex w-[min(400px,38vw)] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface">
+      <ZonePanel />
+    </div>
+  </div>
 );

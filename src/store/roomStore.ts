@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type {
-  Room, RoomType, RoomPreset, RoomVertex, SubSpace, FloorType, CeilingType,
+  Room, RoomType, RoomPreset, RoomVertex, SubSpace, FloorType, CeilingType, ZonePlacementMode,
 } from '../types/room';
 import type { Wall, WallElement, WallDetail } from '../types/wall';
 import { generateWallsFromVertices } from '../utils/wallGenerator';
@@ -19,7 +19,7 @@ import { createPresetVertices } from '../utils/presets';
 import { generateId } from '../utils/idGenerator';
 import { FLOOR_PLAN_CANVAS_H, FLOOR_PLAN_CANVAS_W } from '../constants/canvas';
 import { suggestNextRoomName } from '../utils/roomNaming';
-import { isZonePlacementValid } from '../utils/subSpaceContainment';
+import { isZonePlacementValid, getZoneWallSnapPosition } from '../utils/subSpaceContainment';
 import { useProjectStore } from './projectStore';
 
 interface RoomDraft {
@@ -31,6 +31,7 @@ interface RoomDraft {
   height: number;
   walls: Wall[];
   subSpaces: SubSpace[];
+  zonePlacementMode: ZonePlacementMode;
   floorType?: FloorType;
   ceilingType?: CeilingType;
   floorNotes: string;
@@ -53,6 +54,7 @@ interface RoomStoreState {
   setCeilingType: (type: CeilingType | undefined) => void;
   setFloorNotes: (notes: string) => void;
   setCeilingNotes: (notes: string) => void;
+  setZonePlacementMode: (mode: ZonePlacementMode) => void;
 
   rotateRoom: () => void;
   rotateRoomCCW: () => void;
@@ -93,6 +95,7 @@ const createEmptyDraft = (): RoomDraft => {
     height,
     walls: generateWallsFromVertices(vertices, height),
     subSpaces: [],
+    zonePlacementMode: 'binnen',
     floorType: undefined,
     ceilingType: undefined,
     floorNotes: '',
@@ -107,6 +110,7 @@ const recalcWallNetAreas = (walls: Wall[]): Wall[] =>
 const revalidateSubSpaces = (
   subSpaces: SubSpace[],
   vertices: RoomVertex[],
+  mode: ZonePlacementMode,
 ): SubSpace[] =>
   subSpaces.filter((s) =>
     isZonePlacementValid(
@@ -114,6 +118,7 @@ const revalidateSubSpaces = (
       vertices,
       subSpaces,
       s.id,
+      mode,
     ),
   );
 
@@ -130,7 +135,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         createPresetVertices(preset, DEFAULT_ROOM_W_CM, DEFAULT_ROOM_L_CM),
       );
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, preset, vertices, walls, subSpaces } };
     }),
 
@@ -140,7 +145,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const snapped = { x: snapCmForRoomVertex(pos.x), y: snapCmForRoomVertex(pos.y) };
       const vertices = d.vertices.map((v, i) => (i === index ? snapped : v));
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
 
@@ -166,7 +171,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       if (d.vertices.length <= 3) return state;
       const vertices = d.vertices.filter((_, i) => i !== index);
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
 
@@ -175,7 +180,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const d = state.draft;
       vertices = snapVerticesCmToGrid(vertices);
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
 
@@ -208,12 +213,26 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   setCeilingNotes: (notes) =>
     set((state) => ({ draft: { ...state.draft, ceilingNotes: notes } })),
 
+  setZonePlacementMode: (mode) =>
+    set((state) => {
+      const d = state.draft;
+      // Re-snap every zone to the new wall side so the mode change is immediately visible
+      // and zones are valid for the next drag operation.
+      const snappedSubSpaces = d.subSpaces.map((s) => {
+        const pos = getZoneWallSnapPosition(
+          s.position.x, s.position.y, s.width, s.length, d.vertices, mode,
+        );
+        return { ...s, position: pos };
+      });
+      return { draft: { ...d, zonePlacementMode: mode, subSpaces: snappedSubSpaces } };
+    }),
+
   rotateRoom: () =>
     set((state) => {
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CW(d.vertices));
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
 
@@ -222,7 +241,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CCW(d.vertices));
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices);
+      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
 
@@ -327,6 +346,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         height: room.height,
         walls: room.walls,
         subSpaces: room.subSpaces,
+        zonePlacementMode: 'binnen',
         floorType: room.floor.type,
         ceilingType: room.ceiling.type,
         floorNotes: room.floor.notes ?? '',

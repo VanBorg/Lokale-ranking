@@ -37,6 +37,8 @@ export type FloorType = 'tiles' | 'wood' | 'laminate' | 'concrete' | 'vinyl' | '
 
 export type CeilingType = 'plaster' | 'suspended' | 'wood' | 'concrete' | 'other';
 
+export type ZonePlacementMode = 'binnen' | 'buiten' | 'vrij';
+
 export interface SubSpace {
   id: string;
   name: string;
