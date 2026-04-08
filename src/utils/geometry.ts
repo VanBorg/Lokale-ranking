@@ -145,16 +145,26 @@ export function verticesBoundingBox(vertices: RoomVertex[]): {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 }
 
-/** Floor area of a polygon via the Shoelace formula, returned in m². */
-export function calcPolygonArea(vertices: RoomVertex[]): number {
+/** Twice the signed polygon area (shoelace, cm²). Positive ⇒ counter-clockwise vertex order. */
+export function polygonSignedAreaTwice(vertices: RoomVertex[]): number {
   const n = vertices.length;
-  let area = 0;
+  let t = 0;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    area += vertices[i]!.x * vertices[j]!.y;
-    area -= vertices[j]!.x * vertices[i]!.y;
+    t += vertices[i]!.x * vertices[j]!.y - vertices[j]!.x * vertices[i]!.y;
   }
-  return parseFloat((Math.abs(area) / 2 / 10000).toFixed(2));
+  return t;
+}
+
+/** True when vertices are ordered counter-clockwise (positive signed area). */
+export function isPolygonCCW(vertices: RoomVertex[]): boolean {
+  return polygonSignedAreaTwice(vertices) > 0;
+}
+
+/** Floor area of a polygon via the Shoelace formula, returned in m². */
+export function calcPolygonArea(vertices: RoomVertex[]): number {
+  const t = polygonSignedAreaTwice(vertices);
+  return parseFloat((Math.abs(t) / 2 / 10000).toFixed(2));
 }
 
 /** Length of an edge between two vertices in cm. Works for diagonal edges too. */
@@ -162,6 +172,43 @@ export function edgeLength(a: RoomVertex, b: RoomVertex): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   return Math.round(Math.sqrt(dx * dx + dy * dy));
+}
+
+/**
+ * Interior angle in degrees at each vertex (same order as `vertices`).
+ * Convex corners use the smaller wedge; reflex (concave) corners use 360° minus that wedge.
+ */
+export function polygonVertexInteriorAnglesDeg(vertices: RoomVertex[]): number[] {
+  const n = vertices.length;
+  if (n < 3) return vertices.map(() => 0);
+
+  const ccw = isPolygonCCW(vertices);
+
+  return vertices.map((_, i) => {
+    const prev = vertices[(i - 1 + n) % n]!;
+    const curr = vertices[i]!;
+    const next = vertices[(i + 1) % n]!;
+    const e1x = curr.x - prev.x;
+    const e1y = curr.y - prev.y;
+    const e2x = next.x - curr.x;
+    const e2y = next.y - curr.y;
+    const z = e1x * e2y - e1y * e2x;
+    const convex = ccw ? z > 0 : z < 0;
+
+    const v1x = prev.x - curr.x;
+    const v1y = prev.y - curr.y;
+    const v2x = next.x - curr.x;
+    const v2y = next.y - curr.y;
+    const len1 = Math.hypot(v1x, v1y);
+    const len2 = Math.hypot(v2x, v2y);
+    if (len1 < 1e-9 || len2 < 1e-9) return 0;
+
+    let cos = (v1x * v2x + v1y * v2y) / (len1 * len2);
+    cos = Math.max(-1, Math.min(1, cos));
+    const smallDeg = (Math.acos(cos) * 180) / Math.PI;
+    const interior = convex ? smallDeg : 360 - smallDeg;
+    return Math.round(interior * 10) / 10;
+  });
 }
 
 /** Midpoint between two vertices (used for "add vertex" on an edge). */

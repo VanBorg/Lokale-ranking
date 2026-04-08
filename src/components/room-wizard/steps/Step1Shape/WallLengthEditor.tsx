@@ -1,15 +1,21 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRoomStore } from '../../../../store/roomStore';
 import { useUiStore } from '../../../../store/uiStore';
 import { cmToM, mToCm } from '../../../../utils/geometry';
 
 export const WallLengthEditor = () => {
   const walls = useRoomStore((s) => s.draft.walls);
-  const vertices = useRoomStore((s) => s.draft.vertices);
   const updateVertex = useRoomStore((s) => s.updateVertex);
   const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
   const toggleWallLock = useRoomStore((s) => s.toggleWallLock);
   const setHoveredWallIndex = useUiStore((s) => s.setHoveredWallIndex);
+
+  useEffect(
+    () => () => {
+      setHoveredWallIndex(null);
+    },
+    [setHoveredWallIndex],
+  );
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -32,13 +38,20 @@ export const WallLengthEditor = () => {
     }, 400);
   };
 
+  const stepLength = (wallIndex: number, deltaCm: number) => {
+    const w = useRoomStore.getState().draft.walls[wallIndex];
+    if (!w) return;
+    handleLengthChange(wallIndex, w.width + deltaCm);
+  };
+
   const handleLengthChange = (wallIndex: number, newLengthCm: number) => {
     if (newLengthCm < 10) return;
-    const n = vertices.length;
+    const { vertices: verts } = useRoomStore.getState().draft;
+    const n = verts.length;
     const startIdx = wallIndex;
     const endIdx = (wallIndex + 1) % n;
-    const start = vertices[startIdx]!;
-    const end = vertices[endIdx]!;
+    const start = verts[startIdx]!;
+    const end = verts[endIdx]!;
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const currentLen = Math.sqrt(dx * dx + dy * dy);
@@ -69,13 +82,19 @@ export const WallLengthEditor = () => {
               }`}
             >
               <span className="w-12 text-xs font-medium text-white shrink-0">{wall.label}</span>
-              <div className="flex flex-1 items-center gap-1">
+              <div className="flex min-w-0 flex-1 items-center gap-1">
                 <button
                   type="button"
                   disabled={locked}
-                  onMouseDown={() => startRepeat(() => handleLengthChange(i, wall.width - 10))}
-                  onMouseUp={stopRepeat}
-                  onMouseLeave={stopRepeat}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    startRepeat(() => stepLength(i, -10));
+                  }}
+                  onPointerUp={stopRepeat}
+                  onPointerLeave={stopRepeat}
+                  onPointerCancel={stopRepeat}
                   className="rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-muted hover:border-brand/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   −
@@ -97,26 +116,32 @@ export const WallLengthEditor = () => {
                 <button
                   type="button"
                   disabled={locked}
-                  onMouseDown={() => startRepeat(() => handleLengthChange(i, wall.width + 10))}
-                  onMouseUp={stopRepeat}
-                  onMouseLeave={stopRepeat}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    startRepeat(() => stepLength(i, 10));
+                  }}
+                  onPointerUp={stopRepeat}
+                  onPointerLeave={stopRepeat}
+                  onPointerCancel={stopRepeat}
                   className="rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-muted hover:border-brand/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   +
                 </button>
+                <button
+                  type="button"
+                  onClick={() => toggleWallLock(wall.id)}
+                  title={locked ? 'Ontgrendelen' : 'Vergrendelen'}
+                  className={`inline-flex min-w-9 flex-1 items-center justify-center rounded border bg-surface px-2 py-0.5 text-sm leading-none transition-colors ${
+                    locked
+                      ? 'border-orange-400 text-brand-light hover:border-orange-300 hover:text-brand-light'
+                      : 'border-line text-muted hover:border-brand/60 hover:text-white'
+                  }`}
+                >
+                  {locked ? '🔒' : '🔓'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => toggleWallLock(wall.id)}
-                title={locked ? 'Ontgrendelen' : 'Vergrendelen'}
-                className={`shrink-0 rounded px-1.5 py-0.5 text-sm transition-colors ${
-                  locked
-                    ? 'text-brand-light hover:text-muted'
-                    : 'text-muted hover:text-white'
-                }`}
-              >
-                {locked ? '🔒' : '🔓'}
-              </button>
             </div>
           );
         })}

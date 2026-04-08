@@ -52,9 +52,9 @@ export const useUiStore = create<UiState>()((set) => ({
   setFloorPlanViewport: (width, height) =>
     set({ floorPlanViewportWidth: width, floorPlanViewportHeight: height }),
   openWizard: () => set({ wizardOpen: true, activeStep: 0, activeWallIndex: 0 }),
-  closeWizard: () => set({ wizardOpen: false }),
+  closeWizard: () => set({ wizardOpen: false, hoveredWallIndex: null }),
   toggleGrid: () => set((s) => ({ gridVisible: !s.gridVisible })),
   resetUi: () =>
-    set({ activeStep: 0, activeWallIndex: 0, wizardOpen: false }),
+    set({ activeStep: 0, activeWallIndex: 0, wizardOpen: false, hoveredWallIndex: null }),
   setHoveredWallIndex: (index) => set({ hoveredWallIndex: index }),
 }));

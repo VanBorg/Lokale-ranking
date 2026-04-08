@@ -43,7 +43,7 @@ export const useRoomCanvas = ({
 
       const oldZoom = zoom;
       // Smooth zoom: scale follows scroll distance (trackpads send small deltas; mice larger steps).
-      const zoomIntensity = 0.0015;
+      const zoomIntensity = 0.0025;
       const factor = Math.exp(-deltaY * zoomIntensity);
       const newZoom = Math.min(3, Math.max(MIN_CANVAS_ZOOM, oldZoom * factor));
 

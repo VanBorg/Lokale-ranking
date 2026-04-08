@@ -23,14 +23,14 @@ export const CanvasToolbar = ({ onResetView }: CanvasToolbarProps) => {
   const zoomIn = () => {
     const st = useUiStore.getState();
     const oldZ = st.canvasZoom;
-    const newZ = Math.min(oldZ + 0.1, 3);
+    const newZ = Math.min(oldZ + 0.15, 3);
     setZoom(newZ);
     setPan(panAfterZoomToViewportCentre(oldZ, newZ, st.canvasPan, safeW, safeH));
   };
   const zoomOut = () => {
     const st = useUiStore.getState();
     const oldZ = st.canvasZoom;
-    const newZ = Math.max(oldZ - 0.1, MIN_CANVAS_ZOOM);
+    const newZ = Math.max(oldZ - 0.15, MIN_CANVAS_ZOOM);
     setZoom(newZ);
     setPan(panAfterZoomToViewportCentre(oldZ, newZ, st.canvasPan, safeW, safeH));
   };

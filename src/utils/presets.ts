@@ -4,14 +4,6 @@ import { verticesBoundingBox } from './geometry';
 /** Same viewBox as `PresetPicker` icons (0–40), so floor shapes match the buttons. */
 const ICON = 40;
 
-/** Split a length (cm) into three near-equal integer parts (e.g. 1000 → 333, 333, 334). */
-function splitThirdsCm(total: number): [number, number, number] {
-  const a = Math.floor(total / 3);
-  const b = Math.floor((total - a) / 2);
-  const c = total - a - b;
-  return [a, b, c];
-}
-
 /**
  * Thirds with remainder on the **middle** band (e.g. 1000 → 333, 334, 333).
  * Used for the + preset so outer-arm walls A, D, G, J (edges 0,3,6,9 clockwise from top) are 3.34 m

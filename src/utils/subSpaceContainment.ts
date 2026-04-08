@@ -238,3 +238,54 @@ export function getZoneWallSnapPosition(
 
   return { x: best.x, y: best.y };
 }
+
+/**
+ * Compute the new position/size when a resize handle is dragged.
+ * handleLocalX/Y = handle centre position in cm within the zone's local coordinate space.
+ * Extracted from RoomPreview so ZoneLayer can import it directly.
+ */
+export function getResizeUpdate(
+  space: SubSpace,
+  handleLocalX: number,
+  handleLocalY: number,
+  corner: 'tl' | 'tr' | 'bl' | 'br',
+  minZoneSize = 10,
+): { position: { x: number; y: number }; width: number; length: number } {
+  const originX = space.position.x;
+  const originY = space.position.y;
+  const anchorX = originX + space.width;
+  const anchorY = originY + space.length;
+  let nextX = originX;
+  let nextY = originY;
+  let nextW = space.width;
+  let nextH = space.length;
+
+  if (corner === 'tl') {
+    nextX = originX + handleLocalX;
+    nextY = originY + handleLocalY;
+    nextW = anchorX - nextX;
+    nextH = anchorY - nextY;
+  } else if (corner === 'tr') {
+    nextY = originY + handleLocalY;
+    nextW = handleLocalX;
+    nextH = anchorY - nextY;
+  } else if (corner === 'bl') {
+    nextX = originX + handleLocalX;
+    nextW = anchorX - nextX;
+    nextH = handleLocalY;
+  } else {
+    nextW = handleLocalX;
+    nextH = handleLocalY;
+  }
+
+  if (nextW < minZoneSize) {
+    nextW = minZoneSize;
+    if (corner === 'tl' || corner === 'bl') nextX = anchorX - nextW;
+  }
+  if (nextH < minZoneSize) {
+    nextH = minZoneSize;
+    if (corner === 'tl' || corner === 'tr') nextY = anchorY - nextH;
+  }
+
+  return { position: { x: nextX, y: nextY }, width: nextW, length: nextH };
+}

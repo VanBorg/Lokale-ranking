@@ -22,12 +22,3 @@ export function getWizardCanvasMode(
     default: return 'room-outline';
   }
 }
-
-/** Short overlay label shown on the canvas so the current step is obvious. */
-export const WIZARD_CANVAS_OVERLAY: Record<WizardCanvasMode, string | null> = {
-  idle: null,
-  'room-outline':     'Stap 1 — vorm & afmetingen bewerken',
-  'sub-space-layout': 'Stap 2 — zones slepen binnen de kamer',
-  'walls-preview':    'Stap 3 — wanden bewerken in het paneel',
-  'overview-preview': 'Stap 4 — laatste controle',
-};

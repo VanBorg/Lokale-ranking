@@ -1,11 +1,12 @@
-import { Group, Line, Rect, Text } from 'react-konva';
+import { Group, Line } from 'react-konva';
 import type { Room } from '../../types/room';
 import { useDragRoom } from '../../hooks/useDragRoom';
 import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
 import { useProjectStore } from '../../store/projectStore';
 import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
-import { KONVA_COLORS, KONVA_EMOJI_FONT_FAMILY, ROOM_TYPE_ICONS } from '../../design/konva';
+import { KONVA_COLORS } from '../../design/konva';
+import { RoomTypeIconBox } from './RoomTypeIconBox';
 
 interface RoomBlockProps {
   room: Room;
@@ -20,10 +21,8 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
 
   const points = verticesToKonvaPoints(room.vertices, ROOM_CANVAS_SCALE);
   const bb = verticesBoundingBox(room.vertices);
-  const iconBoxSize = 88;
   const iconCx = ((bb.minX + bb.maxX) / 2) * ROOM_CANVAS_SCALE;
   const iconCy = ((bb.minY + bb.maxY) / 2) * ROOM_CANVAS_SCALE;
-  const icon = ROOM_TYPE_ICONS[room.roomType];
 
   const handleDblClick = () => {
     loadRoom(room);
@@ -55,30 +54,7 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
         stroke={KONVA_COLORS.roomStroke}
         strokeWidth={2}
       />
-      <Rect
-        listening={false}
-        x={iconCx - iconBoxSize / 2}
-        y={iconCy - iconBoxSize / 2}
-        width={iconBoxSize}
-        height={iconBoxSize}
-        fill="rgba(51,65,85,0.95)"
-        cornerRadius={18}
-      />
-      <Text
-        listening={false}
-        x={iconCx - iconBoxSize / 2}
-        y={iconCy - iconBoxSize / 2}
-        width={iconBoxSize}
-        height={iconBoxSize}
-        text={icon}
-        fontSize={52}
-        fontFamily={KONVA_EMOJI_FONT_FAMILY}
-        align="center"
-        verticalAlign="middle"
-        shadowColor="rgba(255,255,255,0.35)"
-        shadowBlur={6}
-        shadowOffset={{ x: 0, y: 0 }}
-      />
+      <RoomTypeIconBox cx={iconCx} cy={iconCy} roomType={room.roomType} />
     </Group>
   );
 };

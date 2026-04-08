@@ -1,19 +1,25 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import type Konva from 'konva';
-import { Group, Line, Rect, Circle, Text } from 'react-konva';
-import type { RoomVertex, RoomType, SubSpace, ZonePlacementMode } from '../../types/room';
+import { Group, Line, Circle, Text } from 'react-konva';
+import type { RoomType, RoomVertex, SubSpace, ZonePlacementMode } from '../../types/room';
 import type { Wall } from '../../types/wall';
 import {
   verticesToKonvaPoints,
   verticesBoundingBox,
+  polygonVertexInteriorAnglesDeg,
+  isPolygonCCW,
   ROOM_CANVAS_SCALE,
   snapCmForRoomVertex,
 } from '../../utils/geometry';
-import { getZoneWallSnapPosition, isZonePlacementValid } from '../../utils/subSpaceContainment';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
-import { KONVA_COLORS, KONVA_EMOJI_FONT_FAMILY, ROOM_TYPE_ICONS } from '../../design/konva';
-import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
+import { useUiStore } from '../../store/uiStore';
+import { KONVA_COLORS } from '../../design/konva';
+import { ZoneLayer } from './ZoneLayer';
+import { RoomTypeIconBox } from './RoomTypeIconBox';
+
+const WALL_LABEL_FONT_SIZE = 13;
+const ANGLE_LABEL_FONT_SIZE = 12;
 
 interface RoomPreviewProps {
   x: number;
@@ -21,7 +27,6 @@ interface RoomPreviewProps {
   vertices: RoomVertex[];
   walls: Wall[];
   subSpaces: SubSpace[];
-  name: string;
   roomType: RoomType;
   canvasMode: WizardCanvasMode;
   zonePlacementMode: ZonePlacementMode;
@@ -30,13 +35,13 @@ interface RoomPreviewProps {
   onZoneChange?: (id: string, updates: Partial<SubSpace>) => void;
 }
 
+/** Wizard draft room on the floor-plan canvas: polygon, dimensions, corner angles, zones, handles. */
 export const RoomPreview = ({
   x,
   y,
   vertices,
   walls,
   subSpaces,
-  name: _name,
   roomType,
   canvasMode,
   zonePlacementMode,
@@ -47,103 +52,96 @@ export const RoomPreview = ({
   const hoveredWallIndex = useUiStore((s) => s.hoveredWallIndex);
   const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
 
-  const groupRef = useRef<Konva.Group | null>(null);
-  const invalidFlashRef = useRef<Set<string>>(new Set());
-  const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const prevSizes = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map());
-
   const isOutlineMode = canvasMode === 'room-outline';
   const isZoneMode = canvasMode === 'sub-space-layout';
   const isDimmed = canvasMode === 'walls-preview' || canvasMode === 'overview-preview';
-  const minZoneSize = 10;
 
-  /**
-   * Vertex handle position in cm, from the dragged node's coordinates in the room Group.
-   * Use parent-local x/y — not getAbsolutePosition()/stage.scale — so zoom/pan cannot skew the result.
-   */
-  const vertexCmFromDragTarget = useCallback((target: Konva.Node) => {
-    const localX = target.x();
-    const localY = target.y();
-    return {
-      x: snapCmForRoomVertex(localX / ROOM_CANVAS_SCALE),
-      y: snapCmForRoomVertex(localY / ROOM_CANVAS_SCALE),
-    };
-  }, []);
-
-  const snapZonePosition = useCallback(
-    (zoneX: number, zoneY: number, zoneW: number, zoneH: number) =>
-      getZoneWallSnapPosition(zoneX, zoneY, zoneW, zoneH, vertices, zonePlacementMode),
-    [vertices, zonePlacementMode],
+  /** Vertex position in cm from the dragged node's parent-local coordinates. */
+  const vertexCmFromDragTarget = useCallback(
+    (target: Konva.Node) => ({
+      x: snapCmForRoomVertex(target.x() / ROOM_CANVAS_SCALE),
+      y: snapCmForRoomVertex(target.y() / ROOM_CANVAS_SCALE),
+    }),
+    [],
   );
 
-  /**
-   * Compute new position/size for a resize drag.
-   * handleLocalX/Y = handle center position in cm within the zone group's local coordinate space.
-   */
-  const getResizeUpdate = useCallback(
-    (
-      space: SubSpace,
-      handleLocalX: number,
-      handleLocalY: number,
-      corner: 'tl' | 'tr' | 'bl' | 'br',
-    ) => {
-      const originX = space.position.x;
-      const originY = space.position.y;
-      const anchorX = originX + space.width;
-      const anchorY = originY + space.length;
-      let nextX = originX;
-      let nextY = originY;
-      let nextW = space.width;
-      let nextH = space.length;
-
-      if (corner === 'tl') {
-        nextX = originX + handleLocalX;
-        nextY = originY + handleLocalY;
-        nextW = anchorX - nextX;
-        nextH = anchorY - nextY;
-      } else if (corner === 'tr') {
-        nextY = originY + handleLocalY;
-        nextW = handleLocalX;
-        nextH = anchorY - nextY;
-      } else if (corner === 'bl') {
-        nextX = originX + handleLocalX;
-        nextW = anchorX - nextX;
-        nextH = handleLocalY;
-      } else {
-        nextW = handleLocalX;
-        nextH = handleLocalY;
-      }
-
-      if (nextW < minZoneSize) {
-        nextW = minZoneSize;
-        if (corner === 'tl' || corner === 'bl') nextX = anchorX - nextW;
-      }
-      if (nextH < minZoneSize) {
-        nextH = minZoneSize;
-        if (corner === 'tl' || corner === 'tr') nextY = anchorY - nextH;
-      }
-
-      const snapped = snapZonePosition(nextX, nextY, nextW, nextH);
-      return { position: snapped, width: nextW, length: nextH };
-    },
-    [minZoneSize, snapZonePosition],
+  const points = useMemo(
+    () => verticesToKonvaPoints(vertices, ROOM_CANVAS_SCALE),
+    [vertices],
   );
 
-  const points = verticesToKonvaPoints(vertices, ROOM_CANVAS_SCALE);
-  const bb = verticesBoundingBox(vertices);
-  const iconBoxSize = 88;
-  const iconCx = ((bb.minX + bb.maxX) / 2) * ROOM_CANVAS_SCALE;
-  const iconCy = ((bb.minY + bb.maxY) / 2) * ROOM_CANVAS_SCALE;
-  const icon = ROOM_TYPE_ICONS[roomType];
-
-  const n = vertices.length;
-  const centroid = vertices.reduce(
-    (acc, v) => ({ x: acc.x + v.x / n, y: acc.y + v.y / n }),
-    { x: 0, y: 0 },
+  const wallStates = useMemo(
+    () =>
+      walls.map((wall, i) => {
+        const locked = lockedWallIds.includes(wall.id);
+        const hovered = hoveredWallIndex === i;
+        return {
+          locked,
+          hovered,
+          emphasise: locked || hovered,
+        };
+      }),
+    [walls, lockedWallIds, hoveredWallIndex],
   );
+
+  const interiorAnglesDeg = useMemo(() => polygonVertexInteriorAnglesDeg(vertices), [vertices]);
+
+  const iconCentre = useMemo(() => {
+    if (vertices.length < 3) return null;
+    const bb = verticesBoundingBox(vertices);
+    const s = ROOM_CANVAS_SCALE;
+    return { cx: ((bb.minX + bb.maxX) / 2) * s, cy: ((bb.minY + bb.maxY) / 2) * s };
+  }, [vertices]);
+
+  /** Inward offset from each vertex along the interior angle bisector (works for convex + reflex corners). */
+  const angleLabelCentres = useMemo(() => {
+    const n = vertices.length;
+    if (n < 3) return [];
+
+    const ccw = isPolygonCCW(vertices);
+    const s = ROOM_CANVAS_SCALE;
+    const inward = 28;
+
+    return vertices.map((curr, i) => {
+      const prev = vertices[(i - 1 + n) % n]!;
+      const next = vertices[(i + 1) % n]!;
+      const e1x = curr.x - prev.x;
+      const e1y = curr.y - prev.y;
+      const e2x = next.x - curr.x;
+      const e2y = next.y - curr.y;
+      const z = e1x * e2y - e1y * e2x;
+      const convex = ccw ? z > 0 : z < 0;
+
+      const ax = prev.x - curr.x;
+      const ay = prev.y - curr.y;
+      const bx = next.x - curr.x;
+      const by = next.y - curr.y;
+      const la = Math.hypot(ax, ay);
+      const lb = Math.hypot(bx, by);
+      if (la < 1e-9 || lb < 1e-9) {
+        return { x: curr.x * s, y: curr.y * s };
+      }
+      let nx = ax / la + bx / lb;
+      let ny = ay / la + by / lb;
+      const len = Math.hypot(nx, ny);
+      if (len < 1e-9) {
+        return { x: curr.x * s, y: curr.y * s };
+      }
+      nx /= len;
+      ny /= len;
+      if (!convex) {
+        nx = -nx;
+        ny = -ny;
+      }
+      return {
+        x: curr.x * s + nx * inward,
+        y: curr.y * s + ny * inward,
+      };
+    });
+  }, [vertices]);
 
   return (
-    <Group ref={groupRef} x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
+    <Group x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
       {/* Room outline */}
       <Line
         listening={false}
@@ -155,119 +153,90 @@ export const RoomPreview = ({
         dash={isOutlineMode ? [8, 4] : undefined}
       />
 
-      {/* Hover highlight — rendered after main outline so it sits on top */}
-      {hoveredWallIndex !== null && (() => {
-        const hv1 = vertices[hoveredWallIndex];
-        const hv2 = vertices[(hoveredWallIndex + 1) % n];
-        if (!hv1 || !hv2) return null;
-        return (
-          <Line
-            listening={false}
-            points={[
-              hv1.x * ROOM_CANVAS_SCALE,
-              hv1.y * ROOM_CANVAS_SCALE,
-              hv2.x * ROOM_CANVAS_SCALE,
-              hv2.y * ROOM_CANVAS_SCALE,
-            ]}
-            stroke="#f97316"
-            strokeWidth={4}
-          />
-        );
-      })()}
+      {/* Sidebar hover + slot: zelfde rand als “Wand A”, “Wand B”, …; vergrendeld blijft oranje */}
+      {isOutlineMode &&
+        walls.map((_, i) => {
+          const st = wallStates[i];
+          if (!st?.emphasise) return null;
+          const v1 = vertices[i]!;
+          const v2 = vertices[(i + 1) % vertices.length]!;
+          const s = ROOM_CANVAS_SCALE;
+          return (
+            <Line
+              key={`wall-emph-${i}`}
+              listening={false}
+              points={[v1.x * s, v1.y * s, v2.x * s, v2.y * s]}
+              stroke={KONVA_COLORS.wallHoverStroke}
+              strokeWidth={7}
+              lineCap="round"
+              lineJoin="round"
+            />
+          );
+        })}
 
-      {/* Wall distance labels with dark background — visible in all canvas modes */}
+      {/* Wall length labels — visible in all modes */}
       {walls.map((wall, i) => {
         const v1 = vertices[i]!;
-        const v2 = vertices[(i + 1) % n]!;
+        const v2 = vertices[(i + 1) % vertices.length]!;
         const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
         const my = ((v1.y + v2.y) / 2) * ROOM_CANVAS_SCALE;
         const dx = v2.x - v1.x;
         const dy = v2.y - v1.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nx = (-dy / len) * 32;
-        const ny = (dx / len) * 32;
-        const distLabel = `${(wall.width / 100).toFixed(2)} m`;
-        const labelW = distLabel.length * 12 + 16;
-        const labelH = 34;
-        const isLocked = lockedWallIds.includes(wall.id);
+        const nx = (-dy / len) * 20;
+        const ny = (dx / len) * 20;
+        const label = `${String.fromCharCode(65 + i)} ${(wall.width / 100).toFixed(2)} m`;
+        const approxHalfW = label.length * WALL_LABEL_FONT_SIZE * 0.32;
+        const emphasise = wallStates[i]?.emphasise ?? false;
         return (
-          <Group key={`wl-${i}`} listening={false}>
-            <Rect
-              x={mx + nx - labelW / 2}
-              y={my + ny - labelH / 2}
-              width={labelW}
-              height={labelH}
-              fill="rgba(0,0,0,0.7)"
-              cornerRadius={5}
-            />
-            <Text
-              x={mx + nx - labelW / 2}
-              y={my + ny - labelH / 2 + 5}
-              width={labelW}
-              text={distLabel}
-              fontSize={24}
-              fill="#ffffff"
-              fontStyle="bold"
-              align="center"
-            />
-            {isLocked && (
-              <Text
-                x={mx + nx}
-                y={my + ny + labelH / 2 + 8}
-                text="🔒"
-                fontSize={28}
-                align="center"
-                offsetX={14}
-              />
-            )}
-          </Group>
+          <Text
+            key={`wl-${i}`}
+            listening={false}
+            x={mx + nx}
+            y={my + ny}
+            text={label}
+            fontSize={WALL_LABEL_FONT_SIZE}
+            fill={emphasise ? '#fff7ed' : KONVA_COLORS.dimensionLabelFill}
+            stroke={emphasise ? '#9a3412' : KONVA_COLORS.dimensionLabelStroke}
+            strokeWidth={emphasise ? 5 : 4}
+            lineJoin="round"
+            fontStyle="bold"
+            align="center"
+            offsetX={approxHalfW}
+            offsetY={WALL_LABEL_FONT_SIZE / 2}
+          />
         );
       })}
 
-      {/* Vertex angle labels */}
-      {vertices.map((v, i) => {
-        const prev = vertices[(i - 1 + n) % n]!;
-        const next = vertices[(i + 1) % n]!;
-        const ax = prev.x - v.x;
-        const ay = prev.y - v.y;
-        const bx = next.x - v.x;
-        const by = next.y - v.y;
-        const angleRad = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
-        const angleDeg = Math.round(Math.abs((angleRad * 180) / Math.PI));
-        const toCentroidX = centroid.x - v.x;
-        const toCentroidY = centroid.y - v.y;
-        const tLen = Math.sqrt(toCentroidX * toCentroidX + toCentroidY * toCentroidY) || 1;
-        const offsetPx = 30;
-        const lx = v.x * ROOM_CANVAS_SCALE + (toCentroidX / tLen) * offsetPx;
-        const ly = v.y * ROOM_CANVAS_SCALE + (toCentroidY / tLen) * offsetPx;
-        const angleText = `${angleDeg}°`;
-        const aLabelW = angleText.length * 12 + 14;
-        const aLabelH = 30;
+      {/* Interior angle at each corner (degrees) */}
+      {vertices.map((_, i) => {
+        const deg = interiorAnglesDeg[i] ?? 0;
+        const pos = angleLabelCentres[i];
+        if (!pos) return null;
+        const text =
+          Math.abs(deg - Math.round(deg)) < 0.05 ? `${Math.round(deg)}°` : `${deg.toFixed(1)}°`;
+        const approxHalfW = text.length * ANGLE_LABEL_FONT_SIZE * 0.3;
         return (
-          <Group key={`va-${i}`} listening={false}>
-            <Rect
-              x={lx - aLabelW / 2}
-              y={ly - aLabelH / 2}
-              width={aLabelW}
-              height={aLabelH}
-              fill="rgba(0,0,0,0.6)"
-              cornerRadius={4}
-            />
-            <Text
-              x={lx - aLabelW / 2}
-              y={ly - aLabelH / 2 + 4}
-              width={aLabelW}
-              text={angleText}
-              fontSize={22}
-              fill="#e2e8f0"
-              fontStyle="bold"
-              align="center"
-            />
-          </Group>
+          <Text
+            key={`ang-${i}`}
+            listening={false}
+            x={pos.x}
+            y={pos.y}
+            text={text}
+            fontSize={ANGLE_LABEL_FONT_SIZE}
+            fill={KONVA_COLORS.angleLabelFill}
+            stroke={KONVA_COLORS.angleLabelStroke}
+            strokeWidth={3}
+            lineJoin="round"
+            fontStyle="bold"
+            align="center"
+            offsetX={approxHalfW}
+            offsetY={ANGLE_LABEL_FONT_SIZE / 2}
+          />
         );
       })}
 
-      {/* Vertex drag handles — only in room-outline mode */}
+      {/* Vertex drag handles — only in room-outline mode; key=index: RoomVertex has no id, drag uses index */}
       {isOutlineMode &&
         vertices.map((v, i) => (
           <Group
@@ -276,13 +245,9 @@ export const RoomPreview = ({
             y={v.y * ROOM_CANVAS_SCALE}
             draggable
             dragDistance={3}
-            onDragMove={(e) => {
-              const cm = vertexCmFromDragTarget(e.target);
-              onVertexDrag?.(i, cm);
-            }}
+            onDragMove={(e) => onVertexDrag?.(i, vertexCmFromDragTarget(e.target))}
             onDragEnd={(e) => {
-              const cm = vertexCmFromDragTarget(e.target);
-              onVertexDrag?.(i, cm);
+              onVertexDrag?.(i, vertexCmFromDragTarget(e.target));
               onVertexDragEnd?.();
             }}
           >
@@ -298,193 +263,16 @@ export const RoomPreview = ({
           </Group>
         ))}
 
-      {/* Zone rectangles — visible in all modes, interactive only in sub-space-layout */}
-      {subSpaces.map((s) => {
-        const zx = s.position.x * ROOM_CANVAS_SCALE;
-        const zy = s.position.y * ROOM_CANVAS_SCALE;
-        const zw = s.width * ROOM_CANVAS_SCALE;
-        const zh = s.length * ROOM_CANVAS_SCALE;
-        const dimLabel = `${(s.width / 100).toFixed(2)} × ${(s.length / 100).toFixed(2)} m`;
-        const nameLine = s.name?.trim() ?? '';
-        const minSide = Math.min(zw, zh);
-        const labelFont = minSide < 56 ? 8 : 10;
-        const lineCount = nameLine ? 2 : 1;
-        const textBlockH = lineCount * labelFont * 1.15;
-        const labelY = Math.max(2, zh / 2 - textBlockH / 2);
-        const handleSize = Math.min(12, Math.max(8, minSide / 6));
-        const handleHalf = handleSize / 2;
-
-        return (
-          <Group
-            key={s.id}
-            x={zx}
-            y={zy}
-            draggable={isZoneMode}
-            listening={isZoneMode}
-            onDragStart={() => {
-              prevPositions.current.set(s.id, { ...s.position });
-            }}
-            onDragMove={(e) => {
-              const cmX = snapCmForRoomVertex(e.target.x() / ROOM_CANVAS_SCALE);
-              const cmY = snapCmForRoomVertex(e.target.y() / ROOM_CANVAS_SCALE);
-              const snapped = snapZonePosition(cmX, cmY, s.width, s.length);
-              // Imperatively reposition so the snap is visible during drag
-              // without triggering a React re-render mid-drag.
-              e.target.position({
-                x: snapped.x * ROOM_CANVAS_SCALE,
-                y: snapped.y * ROOM_CANVAS_SCALE,
-              });
-            }}
-            onDragEnd={(e) => {
-              if (!onZoneChange) return;
-              const cmX = snapCmForRoomVertex(e.target.x() / ROOM_CANVAS_SCALE);
-              const cmY = snapCmForRoomVertex(e.target.y() / ROOM_CANVAS_SCALE);
-              const snapped = snapZonePosition(cmX, cmY, s.width, s.length);
-              const valid = isZonePlacementValid(
-                snapped.x, snapped.y, s.width, s.length,
-                vertices, subSpaces, s.id, zonePlacementMode,
-              );
-              if (valid) {
-                onZoneChange(s.id, { position: snapped });
-              } else {
-                // Snap back to last valid position
-                const prev = prevPositions.current.get(s.id) ?? s.position;
-                e.target.position({
-                  x: prev.x * ROOM_CANVAS_SCALE,
-                  y: prev.y * ROOM_CANVAS_SCALE,
-                });
-                onZoneChange(s.id, { position: prev });
-              }
-            }}
-          >
-            {/*
-             * Body rect — listening=true so the zone group has a hit area for drag.
-             * Without this the group has no surface to receive mousedown and cannot be dragged.
-             */}
-            <Rect
-              width={zw}
-              height={zh}
-              fill={KONVA_COLORS.zoneFill}
-              stroke={KONVA_COLORS.zoneStroke}
-              strokeWidth={1}
-              opacity={0.85}
-              listening
-            />
-
-            {/* Corner resize handles — only shown and active in zone mode */}
-            {isZoneMode && (
-              <>
-                {(
-                  [
-                    ['tl', 0, 0],
-                    ['tr', zw, 0],
-                    ['bl', 0, zh],
-                    ['br', zw, zh],
-                  ] as const
-                ).map(([corner, cx, cy]) => (
-                  <Rect
-                    key={`${s.id}-${corner}`}
-                    x={cx - handleHalf}
-                    y={cy - handleHalf}
-                    width={handleSize}
-                    height={handleSize}
-                    fill="#ffffff"
-                    stroke={KONVA_COLORS.zoneStroke}
-                    strokeWidth={1}
-                    cornerRadius={2}
-                    draggable
-                    dragDistance={2}
-                    onDragStart={() => {
-                      prevSizes.current.set(s.id, {
-                        x: s.position.x,
-                        y: s.position.y,
-                        w: s.width,
-                        h: s.length,
-                      });
-                    }}
-                    /*
-                     * onDragMove intentionally omitted.
-                     * Calling onZoneChange here triggers a React re-render mid-drag which
-                     * repositions the zone Group (parent) while Konva is still tracking the
-                     * child handle drag — causing the handle to jump on every mouse move.
-                     * Instead we commit the new size in onDragEnd only (one re-render at the end).
-                     */
-                    onDragEnd={(e) => {
-                      if (!onZoneChange) return;
-                      const localX = snapCmForRoomVertex(
-                        (e.target.x() + handleHalf) / ROOM_CANVAS_SCALE,
-                      );
-                      const localY = snapCmForRoomVertex(
-                        (e.target.y() + handleHalf) / ROOM_CANVAS_SCALE,
-                      );
-                      const next = getResizeUpdate(s, localX, localY, corner);
-                      const valid = isZonePlacementValid(
-                        next.position.x, next.position.y, next.width, next.length,
-                        vertices, subSpaces, s.id, zonePlacementMode,
-                      );
-                      if (valid) {
-                        onZoneChange(s.id, next);
-                      } else {
-                        // Roll back to size before drag started
-                        const prev = prevSizes.current.get(s.id) ?? {
-                          x: s.position.x, y: s.position.y, w: s.width, h: s.length,
-                        };
-                        onZoneChange(s.id, {
-                          position: { x: prev.x, y: prev.y },
-                          width: prev.w,
-                          length: prev.h,
-                        });
-                      }
-                      void invalidFlashRef; // suppress unused-ref lint warning
-                    }}
-                  />
-                ))}
-              </>
-            )}
-
-            {/* Zone label — dimensions in metres, same scale as wall labels */}
-            <Text
-              listening={false}
-              x={0}
-              y={labelY}
-              width={zw}
-              text={nameLine ? `${nameLine}\n${dimLabel}` : dimLabel}
-              fontSize={labelFont}
-              fontStyle="bold"
-              fill={KONVA_COLORS.zoneLabel}
-              align="center"
-              lineHeight={1.15}
-            />
-          </Group>
-        );
-      })}
-
-      {/* Room type icon — centred on the bounding box */}
-      <Rect
-        listening={false}
-        x={iconCx - iconBoxSize / 2}
-        y={iconCy - iconBoxSize / 2}
-        width={iconBoxSize}
-        height={iconBoxSize}
-        fill="rgba(51,65,85,0.95)"
-        cornerRadius={18}
-      />
-      <Text
-        listening={false}
-        x={iconCx - iconBoxSize / 2}
-        y={iconCy - iconBoxSize / 2}
-        width={iconBoxSize}
-        height={iconBoxSize}
-        text={icon}
-        fontSize={52}
-        fontFamily={KONVA_EMOJI_FONT_FAMILY}
-        align="center"
-        verticalAlign="middle"
-        shadowColor="rgba(255,255,255,0.35)"
-        shadowBlur={6}
-        shadowOffset={{ x: 0, y: 0 }}
+      {/* Zone rectangles — always visible, interactive only in sub-space-layout mode */}
+      <ZoneLayer
+        subSpaces={subSpaces}
+        vertices={vertices}
+        zonePlacementMode={zonePlacementMode}
+        interactive={isZoneMode}
+        onZoneChange={onZoneChange}
       />
 
+      {iconCentre && <RoomTypeIconBox cx={iconCentre.cx} cy={iconCentre.cy} roomType={roomType} />}
     </Group>
   );
 };

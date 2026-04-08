@@ -26,8 +26,8 @@ export const KONVA_COLORS = {
 
   previewFill: 'rgba(42, 169, 237, 0.26)',
   previewStroke: '#2aa9ed',
-  previewLabel: '#89d9fa',
-  previewOverlay: '#135d8c',
+  /** Highlight edge when the matching row is hovered in the wall list (step 1). */
+  wallHoverStroke: '#fb923c',
 
   vertexHandle: '#2aa9ed',
   vertexHandleStroke: '#ffffff',
@@ -40,6 +40,11 @@ export const KONVA_COLORS = {
   wallFill: '#f8fafc',
   wallStroke: '#cbd5e1',
   wallText: '#64748b',
+  /** Floor-plan overlay: wall length + angle labels (high contrast on blue preview fill). */
+  dimensionLabelFill: '#f8fafc',
+  dimensionLabelStroke: '#0f172a',
+  angleLabelFill: '#fff7ed',
+  angleLabelStroke: '#0f172a',
 
   wallElementColors: {
     door: '#135d8c',

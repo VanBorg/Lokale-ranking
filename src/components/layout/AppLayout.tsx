@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Header } from './Header';
-import { Statusbar } from './Statusbar';
 
 interface AppLayoutProps {
   canvas: ReactNode;
@@ -16,6 +15,5 @@ export const AppLayout = ({ canvas, wizard }: AppLayoutProps) => (
         {wizard}
       </aside>
     </div>
-    <Statusbar />
   </>
 );
