@@ -13,25 +13,25 @@ const PRESET_ICONS: Record<RoomPreset, ReactElement> = {
     <svg viewBox="0 0 40 40" className="w-8 h-8"><rect x="4" y="8" width="32" height="24" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2" rx="1"/></svg>
   ),
   'l-shape': (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 22,4 22,22 36,22 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 20,4 20,20 36,20 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   plus: (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="14,4 26,4 26,14 36,14 36,26 26,26 26,36 14,36 14,26 4,26 4,14 14,14" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="15,4 25,4 25,15 36,15 36,25 25,25 25,36 15,36 15,25 4,25 4,15 15,15" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   'u-shape': (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 14,4 14,28 26,28 26,4 36,4 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 15,4 15,20 25,20 25,4 36,4 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   't-shape': (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 36,4 36,16 24,16 24,36 16,36 16,16 4,16" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 15,4 25,4 36,4 36,20 25,20 25,36 15,36 15,20 4,20" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   trapezoid: (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="10,8 30,8 36,32 4,32" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="12,8 28,8 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   pentagon: (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="20,8 36,16 36,36 4,36 4,16" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="20,4 36,20 36,36 4,36 4,20" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   hexagon: (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,8 20,4 36,8 36,32 20,36 4,32" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="20,4 36,12 36,28 20,36 4,28 4,12" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
 };
 
