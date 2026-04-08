@@ -2,10 +2,8 @@ import { useUiStore } from '../../store/uiStore';
 import { WizardNavigation } from './WizardNavigation';
 import { Step1Shape } from './steps/Step1Shape';
 import { Step2Spaces } from './steps/Step2Spaces';
-import { Step3Walls } from './steps/Step3Walls';
-import { Step4Overview } from './steps/Step4Overview';
 
-const steps = [Step1Shape, Step2Spaces, Step3Walls, Step4Overview];
+const steps = [Step1Shape, Step2Spaces];
 
 export const RoomWizard = () => {
   const wizardOpen = useUiStore((s) => s.wizardOpen);
