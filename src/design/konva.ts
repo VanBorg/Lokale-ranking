@@ -1,3 +1,19 @@
+import type { RoomType } from '../types/room';
+
+export const ROOM_TYPE_ICONS: Record<RoomType, string> = {
+  bathroom: '🛁',
+  kitchen:  '🍳',
+  bedroom:  '🛏',
+  living:   '🛋',
+  hallway:  '🚪',
+  toilet:   '🚽',
+  laundry:  '🧺',
+  garage:   '🚗',
+  attic:    '📦',
+  basement: '🔧',
+  other:    '🏠',
+};
+
 export const KONVA_COLORS = {
   roomFill: 'rgba(42, 169, 237, 0.32)',
   roomStroke: '#2aa9ed',

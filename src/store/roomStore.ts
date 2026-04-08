@@ -17,10 +17,11 @@ import {
 import { calcPolygonArea, midpoint } from '../utils/geometry';
 import { createPresetVertices } from '../utils/presets';
 import { generateId } from '../utils/idGenerator';
-import { FLOOR_PLAN_CANVAS_H, FLOOR_PLAN_CANVAS_W } from '../constants/canvas';
 import { suggestNextRoomName } from '../utils/roomNaming';
 import { isZonePlacementValid, getZoneWallSnapPosition } from '../utils/subSpaceContainment';
 import { useProjectStore } from './projectStore';
+import { useUiStore } from './uiStore';
+import { getFloorPlanMapSizePx } from '../utils/geometry';
 
 interface RoomDraft {
   id: string;
@@ -32,6 +33,7 @@ interface RoomDraft {
   walls: Wall[];
   subSpaces: SubSpace[];
   zonePlacementMode: ZonePlacementMode;
+  lockedWallIds: string[];
   floorType?: FloorType;
   ceilingType?: CeilingType;
   floorNotes: string;
@@ -70,6 +72,7 @@ interface RoomStoreState {
   removeWallDetail: (wallId: string, detailId: string) => void;
   addWallPhoto: (wallId: string, dataUrl: string) => void;
   removeWallPhoto: (wallId: string, index: number) => void;
+  toggleWallLock: (wallId: string) => void;
 
   loadRoom: (room: Room) => void;
   resetDraft: () => void;
@@ -96,6 +99,7 @@ const createEmptyDraft = (): RoomDraft => {
     walls: generateWallsFromVertices(vertices, height),
     subSpaces: [],
     zonePlacementMode: 'binnen',
+    lockedWallIds: [],
     floorType: undefined,
     ceilingType: undefined,
     floorNotes: '',
@@ -335,6 +339,15 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       },
     })),
 
+  toggleWallLock: (wallId) =>
+    set((state) => {
+      const ids = state.draft.lockedWallIds;
+      const next = ids.includes(wallId)
+        ? ids.filter((id) => id !== wallId)
+        : [...ids, wallId];
+      return { draft: { ...state.draft, lockedWallIds: next } };
+    }),
+
   loadRoom: (room) =>
     set({
       draft: {
@@ -347,6 +360,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         walls: room.walls,
         subSpaces: room.subSpaces,
         zonePlacementMode: 'binnen',
+        lockedWallIds: [],
         floorType: room.floor.type,
         ceilingType: room.ceiling.type,
         floorNotes: room.floor.notes ?? '',
@@ -372,9 +386,13 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
 
     let position = { x: 50, y: 50 };
     if (!editingRoomId && existingRooms.length === 0) {
+      const { floorPlanViewportWidth: vw, floorPlanViewportHeight: vh } = useUiStore.getState();
+      const safeW = vw > 0 ? vw : 1200;
+      const safeH = vh > 0 ? vh : 800;
+      const { width: mapW, height: mapH } = getFloorPlanMapSizePx(safeW, safeH);
       position = {
-        x: FLOOR_PLAN_CANVAS_W / 2 - w / 2,
-        y: FLOOR_PLAN_CANVAS_H / 2 - h / 2,
+        x: mapW / 2 - w / 2,
+        y: mapH / 2 - h / 2,
       };
     } else if (!editingRoomId && existingRooms.length > 0) {
       const maxX = Math.max(

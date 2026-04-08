@@ -1,5 +1,6 @@
 import { DEFAULT_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../../constants/canvas';
 import { useUiStore } from '../../store/uiStore';
+import { getPanFloorPlanMapCentered, panAfterZoomToViewportCentre } from '../../utils/canvasView';
 import { Button } from '../ui/Button';
 
 interface CanvasToolbarProps {
@@ -11,18 +12,35 @@ export const CanvasToolbar = ({ onResetView }: CanvasToolbarProps) => {
   const zoom = useUiStore((s) => s.canvasZoom);
   const setZoom = useUiStore((s) => s.setCanvasZoom);
   const setPan = useUiStore((s) => s.setCanvasPan);
+  const vw = useUiStore((s) => s.floorPlanViewportWidth);
+  const vh = useUiStore((s) => s.floorPlanViewportHeight);
   const gridVisible = useUiStore((s) => s.gridVisible);
   const toggleGrid = useUiStore((s) => s.toggleGrid);
 
-  const zoomIn = () => setZoom(Math.min(zoom + 0.1, 3));
-  const zoomOut = () => setZoom(Math.max(zoom - 0.1, MIN_CANVAS_ZOOM));
+  const safeW = vw > 0 ? vw : 800;
+  const safeH = vh > 0 ? vh : 600;
+
+  const zoomIn = () => {
+    const st = useUiStore.getState();
+    const oldZ = st.canvasZoom;
+    const newZ = Math.min(oldZ + 0.1, 3);
+    setZoom(newZ);
+    setPan(panAfterZoomToViewportCentre(oldZ, newZ, st.canvasPan, safeW, safeH));
+  };
+  const zoomOut = () => {
+    const st = useUiStore.getState();
+    const oldZ = st.canvasZoom;
+    const newZ = Math.max(oldZ - 0.1, MIN_CANVAS_ZOOM);
+    setZoom(newZ);
+    setPan(panAfterZoomToViewportCentre(oldZ, newZ, st.canvasPan, safeW, safeH));
+  };
   const resetView = () => {
     if (onResetView) {
       onResetView();
       return;
     }
     setZoom(DEFAULT_CANVAS_ZOOM);
-    setPan({ x: 0, y: 0 });
+    setPan(getPanFloorPlanMapCentered(safeW, safeH, DEFAULT_CANVAS_ZOOM));
   };
 
   return (

@@ -1,11 +1,11 @@
-import { Group, Line, Text } from 'react-konva';
+import { Group, Line, Rect, Text } from 'react-konva';
 import type { Room } from '../../types/room';
 import { useDragRoom } from '../../hooks/useDragRoom';
 import { useUiStore } from '../../store/uiStore';
 import { useRoomStore } from '../../store/roomStore';
 import { useProjectStore } from '../../store/projectStore';
 import { verticesToKonvaPoints, verticesBoundingBox, ROOM_CANVAS_SCALE } from '../../utils/geometry';
-import { KONVA_COLORS } from '../../design/konva';
+import { KONVA_COLORS, ROOM_TYPE_ICONS } from '../../design/konva';
 
 interface RoomBlockProps {
   room: Room;
@@ -20,6 +20,10 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
 
   const points = verticesToKonvaPoints(room.vertices, ROOM_CANVAS_SCALE);
   const bb = verticesBoundingBox(room.vertices);
+  const iconBoxSize = 88;
+  const iconCx = ((bb.minX + bb.maxX) / 2) * ROOM_CANVAS_SCALE;
+  const iconCy = ((bb.minY + bb.maxY) / 2) * ROOM_CANVAS_SCALE;
+  const icon = ROOM_TYPE_ICONS[room.roomType];
 
   const handleDblClick = () => {
     loadRoom(room);
@@ -51,20 +55,25 @@ export const RoomBlock = ({ room, dimmed = false }: RoomBlockProps) => {
         stroke={KONVA_COLORS.roomStroke}
         strokeWidth={2}
       />
-      <Text
-        text={room.name || room.roomType}
-        x={8}
-        y={8}
-        fontSize={14}
-        fontStyle="bold"
-        fill={KONVA_COLORS.roomLabel}
+      <Rect
+        listening={false}
+        x={iconCx - iconBoxSize / 2}
+        y={iconCy - iconBoxSize / 2}
+        width={iconBoxSize}
+        height={iconBoxSize}
+        fill="rgba(0,0,0,0.68)"
+        cornerRadius={18}
       />
       <Text
-        text={`${Math.round(bb.width)}×${Math.round(bb.height)} cm`}
-        x={8}
-        y={26}
-        fontSize={11}
-        fill={KONVA_COLORS.roomLabelSub}
+        listening={false}
+        x={iconCx - iconBoxSize / 2}
+        y={iconCy - iconBoxSize / 2}
+        width={iconBoxSize}
+        height={iconBoxSize}
+        text={icon}
+        fontSize={52}
+        align="center"
+        verticalAlign="middle"
       />
     </Group>
   );

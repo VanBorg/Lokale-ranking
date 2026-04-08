@@ -1,5 +1,6 @@
 import type { Wall } from '../types/wall';
 import type { RoomVertex } from '../types/room';
+import { MIN_CANVAS_ZOOM } from '../constants/canvas';
 
 /** Pixels per cm on the floor-plan canvas. */
 export const ROOM_CANVAS_SCALE = 0.72;
@@ -87,6 +88,21 @@ export function computeGridExtentCells(
     rows: Math.max(minCells, cellsH + bufferCells),
     cellPx,
   };
+}
+
+/** Virtual floor-plan map size in world px — must match `FloorPlanCanvas` / pan clamp. */
+export function getFloorPlanMapSizePx(
+  viewportW: number,
+  viewportH: number,
+): { width: number; height: number } {
+  const { cols, rows, cellPx } = computeGridExtentCells(
+    viewportW,
+    viewportH,
+    MIN_CANVAS_ZOOM,
+    GRID_BUFFER_CELLS,
+    GRID_MIN_CELLS,
+  );
+  return { width: cols * cellPx, height: rows * cellPx };
 }
 
 export const cmToM = (cm: number): number => cm / 100;

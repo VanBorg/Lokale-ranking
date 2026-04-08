@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import type Konva from 'konva';
 import { Group, Line, Rect, Circle, Text } from 'react-konva';
-import type { RoomVertex, SubSpace, ZonePlacementMode } from '../../types/room';
+import type { RoomVertex, RoomType, SubSpace, ZonePlacementMode } from '../../types/room';
 import type { Wall } from '../../types/wall';
 import {
   verticesToKonvaPoints,
@@ -11,8 +11,9 @@ import {
 } from '../../utils/geometry';
 import { getZoneWallSnapPosition, isZonePlacementValid } from '../../utils/subSpaceContainment';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
-import { WIZARD_CANVAS_OVERLAY } from '../../utils/wizardCanvas';
-import { KONVA_COLORS } from '../../design/konva';
+import { KONVA_COLORS, ROOM_TYPE_ICONS } from '../../design/konva';
+import { useUiStore } from '../../store/uiStore';
+import { useRoomStore } from '../../store/roomStore';
 
 interface RoomPreviewProps {
   x: number;
@@ -21,6 +22,7 @@ interface RoomPreviewProps {
   walls: Wall[];
   subSpaces: SubSpace[];
   name: string;
+  roomType: RoomType;
   canvasMode: WizardCanvasMode;
   zonePlacementMode: ZonePlacementMode;
   onVertexDrag?: (index: number, pos: { x: number; y: number }) => void;
@@ -34,13 +36,17 @@ export const RoomPreview = ({
   vertices,
   walls,
   subSpaces,
-  name,
+  name: _name,
+  roomType,
   canvasMode,
   zonePlacementMode,
   onVertexDrag,
   onVertexDragEnd,
   onZoneChange,
 }: RoomPreviewProps) => {
+  const hoveredWallIndex = useUiStore((s) => s.hoveredWallIndex);
+  const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
+
   const groupRef = useRef<Konva.Group | null>(null);
   const invalidFlashRef = useRef<Set<string>>(new Set());
   const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -125,7 +131,16 @@ export const RoomPreview = ({
 
   const points = verticesToKonvaPoints(vertices, ROOM_CANVAS_SCALE);
   const bb = verticesBoundingBox(vertices);
-  const overlayLabel = WIZARD_CANVAS_OVERLAY[canvasMode];
+  const iconBoxSize = 88;
+  const iconCx = ((bb.minX + bb.maxX) / 2) * ROOM_CANVAS_SCALE;
+  const iconCy = ((bb.minY + bb.maxY) / 2) * ROOM_CANVAS_SCALE;
+  const icon = ROOM_TYPE_ICONS[roomType];
+
+  const n = vertices.length;
+  const centroid = vertices.reduce(
+    (acc, v) => ({ x: acc.x + v.x / n, y: acc.y + v.y / n }),
+    { x: 0, y: 0 },
+  );
 
   return (
     <Group ref={groupRef} x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
@@ -140,31 +155,115 @@ export const RoomPreview = ({
         dash={isOutlineMode ? [8, 4] : undefined}
       />
 
-      {/* Wall labels + dimensions — visible in all canvas modes */}
+      {/* Hover highlight — rendered after main outline so it sits on top */}
+      {hoveredWallIndex !== null && (() => {
+        const hv1 = vertices[hoveredWallIndex];
+        const hv2 = vertices[(hoveredWallIndex + 1) % n];
+        if (!hv1 || !hv2) return null;
+        return (
+          <Line
+            listening={false}
+            points={[
+              hv1.x * ROOM_CANVAS_SCALE,
+              hv1.y * ROOM_CANVAS_SCALE,
+              hv2.x * ROOM_CANVAS_SCALE,
+              hv2.y * ROOM_CANVAS_SCALE,
+            ]}
+            stroke="#f97316"
+            strokeWidth={4}
+          />
+        );
+      })()}
+
+      {/* Wall distance labels with dark background — visible in all canvas modes */}
       {walls.map((wall, i) => {
         const v1 = vertices[i]!;
-        const v2 = vertices[(i + 1) % vertices.length]!;
+        const v2 = vertices[(i + 1) % n]!;
         const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
         const my = ((v1.y + v2.y) / 2) * ROOM_CANVAS_SCALE;
         const dx = v2.x - v1.x;
         const dy = v2.y - v1.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nx = (-dy / len) * 14;
-        const ny = (dx / len) * 14;
-        const label = `${String.fromCharCode(65 + i)} ${(wall.width / 100).toFixed(2)}m`;
+        const nx = (-dy / len) * 32;
+        const ny = (dx / len) * 32;
+        const distLabel = `${(wall.width / 100).toFixed(2)} m`;
+        const labelW = distLabel.length * 12 + 16;
+        const labelH = 34;
+        const isLocked = lockedWallIds.includes(wall.id);
         return (
-          <Text
-            key={`wl-${i}`}
-            listening={false}
-            x={mx + nx}
-            y={my + ny}
-            text={label}
-            fontSize={10}
-            fill={KONVA_COLORS.wallText}
-            fontStyle="bold"
-            align="center"
-            offsetX={label.length * 2.5}
-          />
+          <Group key={`wl-${i}`} listening={false}>
+            <Rect
+              x={mx + nx - labelW / 2}
+              y={my + ny - labelH / 2}
+              width={labelW}
+              height={labelH}
+              fill="rgba(0,0,0,0.7)"
+              cornerRadius={5}
+            />
+            <Text
+              x={mx + nx - labelW / 2}
+              y={my + ny - labelH / 2 + 5}
+              width={labelW}
+              text={distLabel}
+              fontSize={24}
+              fill="#ffffff"
+              fontStyle="bold"
+              align="center"
+            />
+            {isLocked && (
+              <Text
+                x={mx + nx}
+                y={my + ny + labelH / 2 + 8}
+                text="🔒"
+                fontSize={28}
+                align="center"
+                offsetX={14}
+              />
+            )}
+          </Group>
+        );
+      })}
+
+      {/* Vertex angle labels */}
+      {vertices.map((v, i) => {
+        const prev = vertices[(i - 1 + n) % n]!;
+        const next = vertices[(i + 1) % n]!;
+        const ax = prev.x - v.x;
+        const ay = prev.y - v.y;
+        const bx = next.x - v.x;
+        const by = next.y - v.y;
+        const angleRad = Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+        const angleDeg = Math.round(Math.abs((angleRad * 180) / Math.PI));
+        const toCentroidX = centroid.x - v.x;
+        const toCentroidY = centroid.y - v.y;
+        const tLen = Math.sqrt(toCentroidX * toCentroidX + toCentroidY * toCentroidY) || 1;
+        const offsetPx = 30;
+        const lx = v.x * ROOM_CANVAS_SCALE + (toCentroidX / tLen) * offsetPx;
+        const ly = v.y * ROOM_CANVAS_SCALE + (toCentroidY / tLen) * offsetPx;
+        const angleText = `${angleDeg}°`;
+        const aLabelW = angleText.length * 12 + 14;
+        const aLabelH = 30;
+        return (
+          <Group key={`va-${i}`} listening={false}>
+            <Rect
+              x={lx - aLabelW / 2}
+              y={ly - aLabelH / 2}
+              width={aLabelW}
+              height={aLabelH}
+              fill="rgba(0,0,0,0.6)"
+              cornerRadius={4}
+            />
+            <Text
+              x={lx - aLabelW / 2}
+              y={ly - aLabelH / 2 + 4}
+              width={aLabelW}
+              text={angleText}
+              fontSize={22}
+              fill="#e2e8f0"
+              fontStyle="bold"
+              align="center"
+            />
+          </Group>
         );
       })}
 
@@ -360,29 +459,28 @@ export const RoomPreview = ({
         );
       })}
 
-      {/* Room name label */}
+      {/* Room type icon — centred on the bounding box */}
+      <Rect
+        listening={false}
+        x={iconCx - iconBoxSize / 2}
+        y={iconCy - iconBoxSize / 2}
+        width={iconBoxSize}
+        height={iconBoxSize}
+        fill="rgba(0,0,0,0.68)"
+        cornerRadius={18}
+      />
       <Text
         listening={false}
-        text={name || 'Nieuwe kamer'}
-        x={8}
-        y={8}
-        fontSize={15}
-        fontStyle="italic"
-        fill={KONVA_COLORS.previewLabel}
+        x={iconCx - iconBoxSize / 2}
+        y={iconCy - iconBoxSize / 2}
+        width={iconBoxSize}
+        height={iconBoxSize}
+        text={icon}
+        fontSize={52}
+        align="center"
+        verticalAlign="middle"
       />
 
-      {/* Step overlay label */}
-      {overlayLabel && (
-        <Text
-          listening={false}
-          text={overlayLabel}
-          x={8}
-          y={Math.max(40, bb.height * ROOM_CANVAS_SCALE - 36)}
-          width={Math.max(120, bb.width * ROOM_CANVAS_SCALE - 16)}
-          fontSize={11}
-          fill={KONVA_COLORS.previewOverlay}
-        />
-      )}
     </Group>
   );
 };

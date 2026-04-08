@@ -2,6 +2,10 @@ import { useCallback } from 'react';
 import type Konva from 'konva';
 import { MIN_CANVAS_ZOOM } from '../constants/canvas';
 import { useUiStore } from '../store/uiStore';
+import { getPanFloorPlanMapCentered } from '../utils/canvasView';
+import { clampStagePan } from '../utils/stagePan';
+
+export { clampStagePan } from '../utils/stagePan';
 
 interface UseRoomCanvasOptions {
   viewportWidth: number;
@@ -10,49 +14,6 @@ interface UseRoomCanvasOptions {
   contentHeight: number;
   defaultZoom: number;
 }
-
-/**
- * Keeps the scaled map in view. When the map is smaller than the viewport on both axes,
- * pan must still be clamped to a range — not forced to one centre point — or drag/scroll feels broken.
- */
-export const clampStagePan = (
-  pan: { x: number; y: number },
-  zoom: number,
-  viewportWidth: number,
-  viewportHeight: number,
-  contentWidth: number,
-  contentHeight: number,
-): { x: number; y: number } => {
-  const contentW = contentWidth * zoom;
-  const contentH = contentHeight * zoom;
-
-  if (contentW <= viewportWidth) {
-    const maxX = Math.max(0, viewportWidth - contentW);
-    if (contentH <= viewportHeight) {
-      const maxY = Math.max(0, viewportHeight - contentH);
-      return {
-        x: Math.min(Math.max(pan.x, 0), maxX),
-        y: Math.min(Math.max(pan.y, 0), maxY),
-      };
-    }
-    return {
-      x: Math.min(Math.max(pan.x, 0), maxX),
-      y: Math.min(0, Math.max(viewportHeight - contentH, pan.y)),
-    };
-  }
-
-  if (contentH <= viewportHeight) {
-    return {
-      x: Math.min(0, Math.max(viewportWidth - contentW, pan.x)),
-      y: Math.min(Math.max(pan.y, 0), Math.max(0, viewportHeight - contentH)),
-    };
-  }
-
-  return {
-    x: Math.min(0, Math.max(viewportWidth - contentW, pan.x)),
-    y: Math.min(0, Math.max(viewportHeight - contentH, pan.y)),
-  };
-};
 
 export const useRoomCanvas = ({
   viewportWidth,
@@ -82,18 +43,20 @@ export const useRoomCanvas = ({
 
       const oldZoom = zoom;
       // Smooth zoom: scale follows scroll distance (trackpads send small deltas; mice larger steps).
-      const zoomIntensity = 0.00085;
+      const zoomIntensity = 0.0015;
       const factor = Math.exp(-deltaY * zoomIntensity);
       const newZoom = Math.min(3, Math.max(MIN_CANVAS_ZOOM, oldZoom * factor));
 
-      const pointer = stage.getPointerPosition() ?? { x: viewportWidth / 2, y: viewportHeight / 2 };
+      // Always zoom towards the viewport centre so the map/room stays centred regardless of cursor position.
+      const cx = viewportWidth / 2;
+      const cy = viewportHeight / 2;
       const mousePointTo = {
-        x: (pointer.x - pan.x) / oldZoom,
-        y: (pointer.y - pan.y) / oldZoom,
+        x: (cx - pan.x) / oldZoom,
+        y: (cy - pan.y) / oldZoom,
       };
       const nextPan = {
-        x: pointer.x - mousePointTo.x * newZoom,
-        y: pointer.y - mousePointTo.y * newZoom,
+        x: cx - mousePointTo.x * newZoom,
+        y: cy - mousePointTo.y * newZoom,
       };
 
       setZoom(newZoom);
@@ -139,17 +102,8 @@ export const useRoomCanvas = ({
 
   const resetView = useCallback(() => {
     setZoom(defaultZoom);
-    setPan(
-      clampStagePan(
-        { x: 0, y: 0 },
-        defaultZoom,
-        viewportWidth,
-        viewportHeight,
-        contentWidth,
-        contentHeight,
-      ),
-    );
-  }, [defaultZoom, viewportWidth, viewportHeight, contentWidth, contentHeight, setZoom, setPan]);
+    setPan(getPanFloorPlanMapCentered(viewportWidth, viewportHeight, defaultZoom));
+  }, [defaultZoom, viewportWidth, viewportHeight, setZoom, setPan]);
 
   return { zoom, pan, handleWheel, handleDragMove, handleDragEnd, resetView };
 };

@@ -1,20 +1,35 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { useRoomStore } from '../../../../store/roomStore';
+import { useUiStore } from '../../../../store/uiStore';
 import { cmToM, mToCm } from '../../../../utils/geometry';
 
 export const WallLengthEditor = () => {
   const walls = useRoomStore((s) => s.draft.walls);
   const vertices = useRoomStore((s) => s.draft.vertices);
   const updateVertex = useRoomStore((s) => s.updateVertex);
-  const [lockedWalls, setLockedWalls] = useState<Set<string>>(new Set());
+  const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
+  const toggleWallLock = useRoomStore((s) => s.toggleWallLock);
+  const setHoveredWallIndex = useUiStore((s) => s.setHoveredWallIndex);
 
-  const toggleLock = (id: string) => {
-    setLockedWalls((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopRepeat = () => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const startRepeat = (action: () => void) => {
+    action();
+    timeoutRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(action, 80);
+    }, 400);
   };
 
   const handleLengthChange = (wallIndex: number, newLengthCm: number) => {
@@ -42,19 +57,25 @@ export const WallLengthEditor = () => {
       <p className="text-xs font-semibold uppercase tracking-wide text-muted">Wanden</p>
       <div className="flex flex-col gap-1">
         {walls.map((wall, i) => {
-          const locked = lockedWalls.has(wall.id);
+          const locked = lockedWallIds.includes(wall.id);
           const lengthM = cmToM(wall.width);
           return (
             <div
               key={wall.id}
-              className="flex items-center gap-2 rounded-md border border-line bg-app px-3 py-1.5"
+              onMouseEnter={() => setHoveredWallIndex(i)}
+              onMouseLeave={() => setHoveredWallIndex(null)}
+              className={`flex items-center gap-2 rounded-md border bg-app px-3 py-1.5 ${
+                locked ? 'border-line' : 'hover:border-orange-400 border-line'
+              }`}
             >
               <span className="w-12 text-xs font-medium text-white shrink-0">{wall.label}</span>
               <div className="flex flex-1 items-center gap-1">
                 <button
                   type="button"
                   disabled={locked}
-                  onClick={() => handleLengthChange(i, wall.width - 10)}
+                  onMouseDown={() => startRepeat(() => handleLengthChange(i, wall.width - 10))}
+                  onMouseUp={stopRepeat}
+                  onMouseLeave={stopRepeat}
                   className="rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-muted hover:border-brand/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   −
@@ -76,7 +97,9 @@ export const WallLengthEditor = () => {
                 <button
                   type="button"
                   disabled={locked}
-                  onClick={() => handleLengthChange(i, wall.width + 10)}
+                  onMouseDown={() => startRepeat(() => handleLengthChange(i, wall.width + 10))}
+                  onMouseUp={stopRepeat}
+                  onMouseLeave={stopRepeat}
                   className="rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-muted hover:border-brand/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   +
@@ -84,7 +107,7 @@ export const WallLengthEditor = () => {
               </div>
               <button
                 type="button"
-                onClick={() => toggleLock(wall.id)}
+                onClick={() => toggleWallLock(wall.id)}
                 title={locked ? 'Ontgrendelen' : 'Vergrendelen'}
                 className={`shrink-0 rounded px-1.5 py-0.5 text-sm transition-colors ${
                   locked
