@@ -87,15 +87,6 @@ export const ZoneLayer = ({
             onClick={() => {
               if (interactive) setSelectedZoneId(isSelected ? null : s.id);
             }}
-            onMouseEnter={(e) => {
-              if (!interactive) return;
-              const c = e.target.getStage()?.container();
-              if (c) c.style.cursor = 'grab';
-            }}
-            onMouseLeave={(e) => {
-              const c = e.target.getStage()?.container();
-              if (c) c.style.cursor = '';
-            }}
             onDragStart={(e) => {
               prevPositions.current.set(s.id, { ...s.position });
               const c = e.target.getStage()?.container();
@@ -142,6 +133,15 @@ export const ZoneLayer = ({
               strokeWidth={isSelected ? 2.5 : 1}
               opacity={0.85}
               listening
+              onMouseEnter={(e) => {
+                if (!interactive) return;
+                const c = e.target.getStage()?.container();
+                if (c) c.style.cursor = 'grab';
+              }}
+              onMouseLeave={(e) => {
+                const c = e.target.getStage()?.container();
+                if (c) c.style.cursor = '';
+              }}
             />
 
             {/* Selection highlight ring */}
@@ -194,7 +194,7 @@ export const ZoneLayer = ({
                       }}
                       onMouseLeave={(e) => {
                         const c = e.target.getStage()?.container();
-                        if (c) c.style.cursor = 'grab';
+                        if (c) c.style.cursor = '';
                       }}
                       onDragStart={(e) => {
                         e.cancelBubble = true;
