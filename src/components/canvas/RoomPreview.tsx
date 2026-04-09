@@ -241,7 +241,7 @@ export const RoomPreview = ({
         const edgeCm = edgeLength(v1, v2);
         const label = `${String.fromCharCode(65 + i)} ${(edgeCm / 100).toFixed(2)} m`;
         const approxHalfW = label.length * WALL_LABEL_FONT_SIZE * 0.32;
-        const emphasise = wallStates[i]?.emphasise ?? false;
+        const emphasise = isOutlineMode && (wallStates[i]?.emphasise ?? false);
         return (
           <Group key={`wl-${i}`} x={mx + nx} y={my + ny} scaleX={invZ} scaleY={invZ} listening={false}>
             <Text

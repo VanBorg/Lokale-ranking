@@ -42,9 +42,9 @@ export const useUiStore = create<UiState>()((set) => ({
 
   setActiveStep: (step) => set({ activeStep: step }),
   nextStep: () =>
-    set((s) => ({ activeStep: Math.min(s.activeStep + 1, TOTAL_STEPS - 1) })),
+    set((s) => ({ activeStep: Math.min(s.activeStep + 1, TOTAL_STEPS - 1), hoveredWallIndex: null })),
   prevStep: () =>
-    set((s) => ({ activeStep: Math.max(s.activeStep - 1, 0) })),
+    set((s) => ({ activeStep: Math.max(s.activeStep - 1, 0), hoveredWallIndex: null })),
   setActiveWallIndex: (index) => set({ activeWallIndex: index }),
   setCanvasZoom: (zoom) =>
     set({ canvasZoom: Math.min(3, Math.max(MIN_CANVAS_ZOOM, zoom)) }),

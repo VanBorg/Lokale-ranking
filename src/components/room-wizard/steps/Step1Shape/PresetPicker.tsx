@@ -4,8 +4,8 @@ import { PRESET_LABELS } from '../../../../utils/presets';
 import type { RoomPreset } from '../../../../types/room';
 
 const PRESETS: RoomPreset[] = [
-  'rectangle', 'l-shape', 'plus', 'u-shape',
-  't-shape', 'trapezoid', 'pentagon', 'hexagon',
+  'rectangle', 'l-shape', 'u-shape', 't-shape',
+  'trapezoid', 'pentagon', 'hexagon', 'plus',
 ];
 
 const PRESET_ICONS: Record<RoomPreset, ReactElement> = {
