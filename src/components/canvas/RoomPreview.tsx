@@ -239,9 +239,9 @@ export const RoomPreview = ({
               }}
             >
               {/* Large invisible hit area */}
-              <Circle radius={22} fill="rgba(0,0,0,0.001)" strokeWidth={0} listening />
+              <Circle radius={26} fill="rgba(0,0,0,0.001)" strokeWidth={0} listening />
               <Circle
-                radius={10}
+                radius={13}
                 fill={frozen ? KONVA_COLORS.vertexHandleLocked : KONVA_COLORS.vertexHandle}
                 stroke={KONVA_COLORS.vertexHandleStroke}
                 strokeWidth={2}
