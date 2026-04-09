@@ -3,6 +3,9 @@ import { snapCmForRoomVertex } from './geometry';
 
 const EPS = 0.0001;
 
+const WALL_SNAP_DIST = 30; // cm — how close before snapping to a room wall
+const ZONE_SNAP_DIST = 20; // cm — how close before snapping to another zone's edge
+
 const pointOnSegment = (
   px: number,
   py: number,
@@ -164,29 +167,121 @@ export function rectsOverlap(
 }
 
 /**
- * Full placement validation: does the zone fit inside the room AND not overlap other zones?
+ * Validate room-polygon containment only. Zone-on-zone overlap is allowed.
  * Returns false → caller snaps the zone back to its previous position.
  */
 export function isZonePlacementValid(
-  zoneX: number, zoneY: number, zoneW: number, zoneH: number,
+  zoneX: number,
+  zoneY: number,
+  zoneW: number,
+  zoneH: number,
   roomVertices: RoomVertex[],
-  otherZones: SubSpace[],
-  excludeId?: string,
+  _otherZones: SubSpace[],
+  _excludeId?: string,
   mode: ZonePlacementMode = 'binnen',
 ): boolean {
-  if (mode === 'binnen' && !rectInsidePolygon(zoneX, zoneY, zoneW, zoneH, roomVertices)) {
-    return false;
-  }
-  if (mode === 'buiten' && !rectOutsidePolygon(zoneX, zoneY, zoneW, zoneH, roomVertices)) {
-    return false;
-  }
-  for (const z of otherZones) {
-    if (z.id === excludeId) continue;
-    if (rectsOverlap(zoneX, zoneY, zoneW, zoneH, z.position.x, z.position.y, z.width, z.length)) {
-      return false;
+  if (mode === 'binnen') return rectInsidePolygon(zoneX, zoneY, zoneW, zoneH, roomVertices);
+  if (mode === 'buiten') return rectOutsidePolygon(zoneX, zoneY, zoneW, zoneH, roomVertices);
+  return true;
+}
+
+function getBinnenWallSnapPosition(
+  zoneX: number,
+  zoneY: number,
+  zoneW: number,
+  zoneH: number,
+  roomVertices: RoomVertex[],
+): { x: number; y: number } {
+  const centre = { x: zoneX + zoneW / 2, y: zoneY + zoneH / 2 };
+  const clockwise = isClockwise(roomVertices);
+  let best = {
+    x: snapCmForRoomVertex(zoneX),
+    y: snapCmForRoomVertex(zoneY),
+    dist: Number.POSITIVE_INFINITY,
+    valid: false,
+  };
+
+  for (let i = 0; i < roomVertices.length; i += 1) {
+    const v1 = roomVertices[i]!;
+    const v2 = roomVertices[(i + 1) % roomVertices.length]!;
+    const dx = v2.x - v1.x;
+    const dy = v2.y - v1.y;
+    // inward normal — same direction as "inward" in the buiten block, before negation
+    const normal = clockwise ? normalize(dy, -dx) : normalize(-dy, dx);
+    const closest = closestPointOnSegment(centre.x, centre.y, v1.x, v1.y, v2.x, v2.y);
+    const distToWall = Math.sqrt((centre.x - closest.x) ** 2 + (centre.y - closest.y) ** 2);
+    // Only consider walls the zone centre is actually near
+    if (distToWall > WALL_SNAP_DIST + Math.max(zoneW, zoneH) / 2) continue;
+    const support = Math.abs(normal.x) * (zoneW / 2) + Math.abs(normal.y) * (zoneH / 2);
+    const cx = closest.x + normal.x * support;
+    const cy = closest.y + normal.y * support;
+    const candX = snapCmForRoomVertex(cx - zoneW / 2);
+    const candY = snapCmForRoomVertex(cy - zoneH / 2);
+    const isValid = rectInsidePolygon(candX, candY, zoneW, zoneH, roomVertices);
+    const dist = (candX + zoneW / 2 - centre.x) ** 2 + (candY + zoneH / 2 - centre.y) ** 2;
+    if ((!best.valid && isValid) || (best.valid === isValid && dist < best.dist)) {
+      best = { x: candX, y: candY, dist, valid: isValid };
     }
   }
-  return true;
+
+  // No wall was in snap range — fall back to plain grid snap
+  if (!best.valid) return { x: snapCmForRoomVertex(zoneX), y: snapCmForRoomVertex(zoneY) };
+  return { x: best.x, y: best.y };
+}
+
+export function getZoneEdgeSnapPosition(
+  zoneX: number,
+  zoneY: number,
+  zoneW: number,
+  zoneH: number,
+  otherZones: SubSpace[],
+  excludeId?: string,
+): { x: number; y: number } {
+  let snapX = zoneX;
+  let snapY = zoneY;
+  let bestDX = ZONE_SNAP_DIST + 1;
+  let bestDY = ZONE_SNAP_DIST + 1;
+
+  for (const z of otherZones) {
+    if (z.id === excludeId) continue;
+    const bx = z.position.x;
+    const by = z.position.y;
+    const bw = z.width;
+    const bh = z.length;
+
+    // X-axis: align any of our vertical faces to any of z's vertical faces
+    for (const [myFace, theirFace] of [
+      [zoneX, bx] as [number, number],
+      [zoneX, bx + bw] as [number, number],
+      [zoneX + zoneW, bx] as [number, number],
+      [zoneX + zoneW, bx + bw] as [number, number],
+    ]) {
+      const d = Math.abs(myFace - theirFace);
+      if (d < bestDX) {
+        bestDX = d;
+        snapX = zoneX + (theirFace - myFace);
+      }
+    }
+
+    // Y-axis: align any of our horizontal faces to any of z's horizontal faces
+    for (const [myFace, theirFace] of [
+      [zoneY, by] as [number, number],
+      [zoneY, by + bh] as [number, number],
+      [zoneY + zoneH, by] as [number, number],
+      [zoneY + zoneH, by + bh] as [number, number],
+    ]) {
+      const d = Math.abs(myFace - theirFace);
+      if (d < bestDY) {
+        bestDY = d;
+        snapY = zoneY + (theirFace - myFace);
+      }
+    }
+  }
+
+  return {
+    x: snapCmForRoomVertex(bestDX <= ZONE_SNAP_DIST ? snapX : zoneX),
+    y: snapCmForRoomVertex(bestDY <= ZONE_SNAP_DIST ? snapY : zoneY),
+  };
 }
 
 export function getZoneWallSnapPosition(
@@ -197,11 +292,11 @@ export function getZoneWallSnapPosition(
   roomVertices: RoomVertex[],
   mode: ZonePlacementMode,
 ): { x: number; y: number } {
-  // 'vrij' and 'binnen': no wall-snap — grid-snap only so the zone follows the cursor freely.
-  // 'binnen' is validated on drop via isZonePlacementValid; snapping to walls during drag
-  // would prevent placing zones away from walls, which is not the intent.
-  if (mode === 'vrij' || mode === 'binnen' || roomVertices.length < 2) {
+  if (mode === 'vrij' || roomVertices.length < 2) {
     return { x: snapCmForRoomVertex(zoneX), y: snapCmForRoomVertex(zoneY) };
+  }
+  if (mode === 'binnen') {
+    return getBinnenWallSnapPosition(zoneX, zoneY, zoneW, zoneH, roomVertices);
   }
 
   // 'buiten': snap zone to the outside of the nearest wall that yields a *valid* position.

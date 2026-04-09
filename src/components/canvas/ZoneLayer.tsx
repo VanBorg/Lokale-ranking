@@ -4,6 +4,7 @@ import type { RoomVertex, SubSpace, ZonePlacementMode } from '../../types/room';
 import { ROOM_CANVAS_SCALE, snapCmForRoomVertex } from '../../utils/geometry';
 import {
   getZoneWallSnapPosition,
+  getZoneEdgeSnapPosition,
   isZonePlacementValid,
   getResizeUpdate,
 } from '../../utils/subSpaceContainment';
@@ -28,9 +29,12 @@ export const ZoneLayer = ({
   const prevSizes = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map());
 
   const snapZonePosition = useCallback(
-    (zoneX: number, zoneY: number, zoneW: number, zoneH: number) =>
-      getZoneWallSnapPosition(zoneX, zoneY, zoneW, zoneH, vertices, zonePlacementMode),
-    [vertices, zonePlacementMode],
+    (id: string, zoneX: number, zoneY: number, zoneW: number, zoneH: number) => {
+      const wallSnapped = getZoneWallSnapPosition(zoneX, zoneY, zoneW, zoneH, vertices, zonePlacementMode);
+      if (zonePlacementMode === 'vrij') return wallSnapped;
+      return getZoneEdgeSnapPosition(wallSnapped.x, wallSnapped.y, zoneW, zoneH, subSpaces, id);
+    },
+    [vertices, zonePlacementMode, subSpaces],
   );
 
   return (
@@ -63,7 +67,7 @@ export const ZoneLayer = ({
             onDragMove={(e) => {
               const cmX = snapCmForRoomVertex(e.target.x() / ROOM_CANVAS_SCALE);
               const cmY = snapCmForRoomVertex(e.target.y() / ROOM_CANVAS_SCALE);
-              const snapped = snapZonePosition(cmX, cmY, s.width, s.length);
+              const snapped = snapZonePosition(s.id, cmX, cmY, s.width, s.length);
               e.target.position({
                 x: snapped.x * ROOM_CANVAS_SCALE,
                 y: snapped.y * ROOM_CANVAS_SCALE,
@@ -73,7 +77,7 @@ export const ZoneLayer = ({
               if (!onZoneChange) return;
               const cmX = snapCmForRoomVertex(e.target.x() / ROOM_CANVAS_SCALE);
               const cmY = snapCmForRoomVertex(e.target.y() / ROOM_CANVAS_SCALE);
-              const snapped = snapZonePosition(cmX, cmY, s.width, s.length);
+              const snapped = snapZonePosition(s.id, cmX, cmY, s.width, s.length);
               const valid = isZonePlacementValid(
                 snapped.x, snapped.y, s.width, s.length,
                 vertices, subSpaces, s.id, zonePlacementMode,
@@ -123,7 +127,8 @@ export const ZoneLayer = ({
                     cornerRadius={2}
                     draggable
                     dragDistance={2}
-                    onDragStart={() => {
+                    onDragStart={(e) => {
+                      e.cancelBubble = true;
                       prevSizes.current.set(s.id, {
                         x: s.position.x,
                         y: s.position.y,
@@ -131,7 +136,20 @@ export const ZoneLayer = ({
                         h: s.length,
                       });
                     }}
+                    onDragMove={(e) => {
+                      e.cancelBubble = true;
+                      if (!onZoneChange) return;
+                      const localX = snapCmForRoomVertex(
+                        (e.target.x() + handleHalf) / ROOM_CANVAS_SCALE,
+                      );
+                      const localY = snapCmForRoomVertex(
+                        (e.target.y() + handleHalf) / ROOM_CANVAS_SCALE,
+                      );
+                      const next = getResizeUpdate(s, localX, localY, corner);
+                      if (next.width >= 10 && next.length >= 10) onZoneChange(s.id, next);
+                    }}
                     onDragEnd={(e) => {
+                      e.cancelBubble = true;
                       if (!onZoneChange) return;
                       const localX = snapCmForRoomVertex(
                         (e.target.x() + handleHalf) / ROOM_CANVAS_SCALE,
@@ -156,6 +174,7 @@ export const ZoneLayer = ({
                           length: prev.h,
                         });
                       }
+                      e.target.position({ x: cx - handleHalf, y: cy - handleHalf });
                     }}
                   />
                 ))}
