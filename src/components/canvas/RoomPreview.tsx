@@ -337,7 +337,9 @@ export const RoomPreview = ({
         );
       })}
 
-      {iconCentre && <RoomTypeIconBox cx={iconCentre.cx} cy={iconCentre.cy} roomType={roomType} />}
+      {!isZoneMode && iconCentre && (
+        <RoomTypeIconBox cx={iconCentre.cx} cy={iconCentre.cy} roomType={roomType} />
+      )}
     </Group>
   );
 };
