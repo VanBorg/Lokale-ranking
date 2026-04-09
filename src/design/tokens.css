@@ -11,5 +11,5 @@
   --color-muted: #94a3b8;
   --color-label: #cbd5e1;
 
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-sans: "Roboto Mono", ui-monospace, "Cascadia Code", monospace;
 }

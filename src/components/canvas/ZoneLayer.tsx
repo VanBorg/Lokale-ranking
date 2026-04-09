@@ -7,7 +7,7 @@ import {
   isZonePlacementValid,
   getResizeUpdate,
 } from '../../utils/subSpaceContainment';
-import { KONVA_COLORS } from '../../design/konva';
+import { KONVA_COLORS, KONVA_FONT_FAMILY } from '../../design/konva';
 
 interface ZoneLayerProps {
   subSpaces: SubSpace[];
@@ -168,6 +168,7 @@ export const ZoneLayer = ({
               y={labelY}
               width={zw}
               text={nameLine ? `${nameLine}\n${dimLabel}` : dimLabel}
+              fontFamily={KONVA_FONT_FAMILY}
               fontSize={labelFont}
               fontStyle="bold"
               fill={KONVA_COLORS.zoneLabel}

@@ -71,8 +71,9 @@ function createUShapeVerticesCm(W: number, L: number): RoomVertex[] {
 }
 
 /**
- * T: top outer edge in three parts 3.33 + 3.34 + 3.33 m; four outer verticals each L/2 (5 m at 10 m);
- * stem width = middle third. Clockwise from top-left.
+ * T: one continuous top wall (length W); stem width = middle third of W (same split as before for xL/xR);
+ * outer left/right verticals each L/2 (5 m at 10 m). Clockwise from top-left.
+ * No colinear vertices on the top edge — that edge is a single wall (A), not three short ones.
  */
 function createTShapeVerticesCm(W: number, L: number): RoomVertex[] {
   const [w1, wMid] = splitThirdsMiddleCm(W);
@@ -81,8 +82,6 @@ function createTShapeVerticesCm(W: number, L: number): RoomVertex[] {
   const xR = w1 + wMid;
   return [
     { x: 0, y: 0 },
-    { x: xL, y: 0 },
-    { x: xR, y: 0 },
     { x: W, y: 0 },
     { x: W, y: h },
     { x: xR, y: h },

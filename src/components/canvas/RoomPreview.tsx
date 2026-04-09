@@ -10,16 +10,21 @@ import {
   isPolygonCCW,
   ROOM_CANVAS_SCALE,
   snapCmForRoomVertex,
+  edgeLength,
 } from '../../utils/geometry';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
 import { useRoomStore } from '../../store/roomStore';
 import { useUiStore } from '../../store/uiStore';
-import { KONVA_COLORS } from '../../design/konva';
+import { KONVA_COLORS, KONVA_FONT_FAMILY } from '../../design/konva';
 import { ZoneLayer } from './ZoneLayer';
 import { RoomTypeIconBox } from './RoomTypeIconBox';
 
-const WALL_LABEL_FONT_SIZE = 13;
-const ANGLE_LABEL_FONT_SIZE = 12;
+/** Screen px — actual size is stabilised via inverse scale under the zoomed Stage. */
+const WALL_LABEL_FONT_SIZE = 16;
+const ANGLE_LABEL_FONT_SIZE = 14;
+/** Dark halo behind text; white fill is rendered on top via fillAfterStrokeEnabled. */
+const DIM_LABEL_STROKE = 4;
+const ANGLE_LABEL_STROKE = 3.5;
 
 interface RoomPreviewProps {
   x: number;
@@ -49,8 +54,13 @@ export const RoomPreview = ({
   onVertexDragEnd,
   onZoneChange,
 }: RoomPreviewProps) => {
+  const canvasZoom = useUiStore((s) => s.canvasZoom);
   const hoveredWallIndex = useUiStore((s) => s.hoveredWallIndex);
   const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
+
+  /** Keeps label size & padding readable at any floor-plan zoom (Stage scales the whole layer). */
+  const z = Math.max(canvasZoom, 0.2);
+  const invZ = 1 / z;
 
   const isOutlineMode = canvasMode === 'room-outline';
   const isZoneMode = canvasMode === 'sub-space-layout';
@@ -100,7 +110,8 @@ export const RoomPreview = ({
 
     const ccw = isPolygonCCW(vertices);
     const s = ROOM_CANVAS_SCALE;
-    const inward = 28;
+    /** ~22–28 px on screen from the corner along the bisector */
+    const inward = 24 / z;
 
     return vertices.map((curr, i) => {
       const prev = vertices[(i - 1 + n) % n]!;
@@ -109,8 +120,8 @@ export const RoomPreview = ({
       const e1y = curr.y - prev.y;
       const e2x = next.x - curr.x;
       const e2y = next.y - curr.y;
-      const z = e1x * e2y - e1y * e2x;
-      const convex = ccw ? z > 0 : z < 0;
+      const cross = e1x * e2y - e1y * e2x;
+      const convex = ccw ? cross > 0 : cross < 0;
 
       const ax = prev.x - curr.x;
       const ay = prev.y - curr.y;
@@ -138,7 +149,7 @@ export const RoomPreview = ({
         y: curr.y * s + ny * inward,
       };
     });
-  }, [vertices]);
+  }, [vertices, z]);
 
   return (
     <Group x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
@@ -173,68 +184,6 @@ export const RoomPreview = ({
             />
           );
         })}
-
-      {/* Wall length labels — visible in all modes */}
-      {walls.map((wall, i) => {
-        const v1 = vertices[i]!;
-        const v2 = vertices[(i + 1) % vertices.length]!;
-        const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
-        const my = ((v1.y + v2.y) / 2) * ROOM_CANVAS_SCALE;
-        const dx = v2.x - v1.x;
-        const dy = v2.y - v1.y;
-        const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nx = (-dy / len) * 20;
-        const ny = (dx / len) * 20;
-        const label = `${String.fromCharCode(65 + i)} ${(wall.width / 100).toFixed(2)} m`;
-        const approxHalfW = label.length * WALL_LABEL_FONT_SIZE * 0.32;
-        const emphasise = wallStates[i]?.emphasise ?? false;
-        return (
-          <Text
-            key={`wl-${i}`}
-            listening={false}
-            x={mx + nx}
-            y={my + ny}
-            text={label}
-            fontSize={WALL_LABEL_FONT_SIZE}
-            fill={emphasise ? '#fff7ed' : KONVA_COLORS.dimensionLabelFill}
-            stroke={emphasise ? '#9a3412' : KONVA_COLORS.dimensionLabelStroke}
-            strokeWidth={emphasise ? 5 : 4}
-            lineJoin="round"
-            fontStyle="bold"
-            align="center"
-            offsetX={approxHalfW}
-            offsetY={WALL_LABEL_FONT_SIZE / 2}
-          />
-        );
-      })}
-
-      {/* Interior angle at each corner (degrees) */}
-      {vertices.map((_, i) => {
-        const deg = interiorAnglesDeg[i] ?? 0;
-        const pos = angleLabelCentres[i];
-        if (!pos) return null;
-        const text =
-          Math.abs(deg - Math.round(deg)) < 0.05 ? `${Math.round(deg)}°` : `${deg.toFixed(1)}°`;
-        const approxHalfW = text.length * ANGLE_LABEL_FONT_SIZE * 0.3;
-        return (
-          <Text
-            key={`ang-${i}`}
-            listening={false}
-            x={pos.x}
-            y={pos.y}
-            text={text}
-            fontSize={ANGLE_LABEL_FONT_SIZE}
-            fill={KONVA_COLORS.angleLabelFill}
-            stroke={KONVA_COLORS.angleLabelStroke}
-            strokeWidth={3}
-            lineJoin="round"
-            fontStyle="bold"
-            align="center"
-            offsetX={approxHalfW}
-            offsetY={ANGLE_LABEL_FONT_SIZE / 2}
-          />
-        );
-      })}
 
       {/* Vertex drag handles — only in room-outline mode; key=index: RoomVertex has no id, drag uses index */}
       {isOutlineMode &&
@@ -271,6 +220,83 @@ export const RoomPreview = ({
         interactive={isZoneMode}
         onZoneChange={onZoneChange}
       />
+
+      {/* Wall lengths + corner angles — drawn above zones so they stay legible (e.g. stap Zones). */}
+      {walls.map((_, i) => {
+        const v1 = vertices[i]!;
+        const v2 = vertices[(i + 1) % vertices.length]!;
+        const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
+        const my = ((v1.y + v2.y) / 2) * ROOM_CANVAS_SCALE;
+        const dx = v2.x - v1.x;
+        const dy = v2.y - v1.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const perpPad = 16 / z;
+        const nx = (-dy / len) * perpPad;
+        const ny = (dx / len) * perpPad;
+        const edgeCm = edgeLength(v1, v2);
+        const label = `${String.fromCharCode(65 + i)} ${(edgeCm / 100).toFixed(2)} m`;
+        const approxHalfW = label.length * WALL_LABEL_FONT_SIZE * 0.32;
+        const emphasise = wallStates[i]?.emphasise ?? false;
+        return (
+          <Group key={`wl-${i}`} x={mx + nx} y={my + ny} scaleX={invZ} scaleY={invZ} listening={false}>
+            <Text
+              listening={false}
+              x={0}
+              y={0}
+              text={label}
+              fontFamily={KONVA_FONT_FAMILY}
+              fontSize={WALL_LABEL_FONT_SIZE}
+              fill={
+                emphasise
+                  ? KONVA_COLORS.dimensionLabelEmphasiseFill
+                  : KONVA_COLORS.dimensionLabelFill
+              }
+              stroke={
+                emphasise
+                  ? KONVA_COLORS.dimensionLabelEmphasiseStroke
+                  : KONVA_COLORS.dimensionLabelStroke
+              }
+              strokeWidth={emphasise ? 5 : DIM_LABEL_STROKE}
+              fillAfterStrokeEnabled
+              lineJoin="round"
+              fontStyle="bold"
+              align="center"
+              offsetX={approxHalfW}
+              offsetY={WALL_LABEL_FONT_SIZE / 2}
+            />
+          </Group>
+        );
+      })}
+
+      {vertices.map((_, i) => {
+        const deg = interiorAnglesDeg[i] ?? 0;
+        const pos = angleLabelCentres[i];
+        if (!pos) return null;
+        const angleText =
+          Math.abs(deg - Math.round(deg)) < 0.05 ? `${Math.round(deg)}°` : `${deg.toFixed(1)}°`;
+        const approxHalfW = angleText.length * ANGLE_LABEL_FONT_SIZE * 0.3;
+        return (
+          <Group key={`ang-${i}`} x={pos.x} y={pos.y} scaleX={invZ} scaleY={invZ} listening={false}>
+            <Text
+              listening={false}
+              x={0}
+              y={0}
+              text={angleText}
+              fontFamily={KONVA_FONT_FAMILY}
+              fontSize={ANGLE_LABEL_FONT_SIZE}
+              fill={KONVA_COLORS.angleLabelFill}
+              stroke={KONVA_COLORS.angleLabelStroke}
+              strokeWidth={ANGLE_LABEL_STROKE}
+              fillAfterStrokeEnabled
+              lineJoin="round"
+              fontStyle="bold"
+              align="center"
+              offsetX={approxHalfW}
+              offsetY={ANGLE_LABEL_FONT_SIZE / 2}
+            />
+          </Group>
+        );
+      })}
 
       {iconCentre && <RoomTypeIconBox cx={iconCentre.cx} cy={iconCentre.cy} roomType={roomType} />}
     </Group>

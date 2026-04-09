@@ -22,7 +22,7 @@ const PRESET_ICONS: Record<RoomPreset, ReactElement> = {
     <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 15,4 15,20 25,20 25,4 36,4 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   't-shape': (
-    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 15,4 25,4 36,4 36,20 25,20 25,36 15,36 15,20 4,20" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
+    <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="4,4 36,4 36,20 25,20 25,36 15,36 15,20 4,20" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>
   ),
   trapezoid: (
     <svg viewBox="0 0 40 40" className="w-8 h-8"><polygon points="12,8 28,8 36,36 4,36" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="2"/></svg>

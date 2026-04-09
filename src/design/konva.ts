@@ -4,6 +4,9 @@ import type { RoomType } from '../types/room';
 export const KONVA_EMOJI_FONT_FAMILY =
   '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
 
+/** Matches app UI — use for Konva dimensions, angles, zone labels (not emoji glyphs). */
+export const KONVA_FONT_FAMILY = '"Roboto Mono", ui-monospace, monospace';
+
 export const ROOM_TYPE_ICONS: Record<RoomType, string> = {
   bathroom: '🛁',
   kitchen:  '🍽️',
@@ -35,16 +38,18 @@ export const KONVA_COLORS = {
   zoneFill: '#b8ecfd',
   zoneStroke: '#2aa9ed',
   zoneStrokeInvalid: '#ef4444',
-  zoneLabel: '#0f4a6e',
+  zoneLabel: '#082f49',
 
   wallFill: '#f8fafc',
   wallStroke: '#cbd5e1',
   wallText: '#64748b',
-  /** Floor-plan overlay: wall length + angle labels (high contrast on blue preview fill). */
-  dimensionLabelFill: '#f8fafc',
-  dimensionLabelStroke: '#0f172a',
-  angleLabelFill: '#fff7ed',
-  angleLabelStroke: '#0f172a',
+  /** Floor-plan overlay: wall length + angle — white text, dark halo for contrast on blue preview. */
+  dimensionLabelFill: '#ffffff',
+  dimensionLabelStroke: '#060b14',
+  dimensionLabelEmphasiseFill: '#ffffff',
+  dimensionLabelEmphasiseStroke: '#ea580c',
+  angleLabelFill: '#ffffff',
+  angleLabelStroke: '#060b14',
 
   wallElementColors: {
     door: '#135d8c',
