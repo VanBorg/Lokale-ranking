@@ -18,9 +18,10 @@ export const ZonePanel = () => {
   return (
     <div className="flex flex-col gap-4 p-4">
       <div>
-        <h2 className="text-base font-semibold text-foreground">Zones in de kamer</h2>
+        <h2 className="text-base font-semibold text-foreground">Ruimtes in de kamer</h2>
         <p className="mt-1 text-xs leading-snug text-muted">
-          Sleep zones op de plattegrond. Gebruik de hoekhandvatten om formaat aan te passen.
+          Sleep ruimtes op de plattegrond. Gebruik de hoekhandvatten om het formaat aan te passen.
+          Klik op een ruimte om het type en de afmetingen in te stellen.
         </p>
       </div>
 
@@ -47,7 +48,7 @@ export const ZonePanel = () => {
 
       <div className="flex flex-col gap-2">
         {subSpaces.length === 0 && (
-          <p className="text-xs text-muted">Nog geen zones. Voeg er een toe via de knop hieronder.</p>
+          <p className="text-xs text-muted">Nog geen ruimtes. Voeg er een toe via de knop hieronder.</p>
         )}
         {subSpaces.map((space) => (
           <ZoneListItem key={space.id} space={space} />
@@ -55,7 +56,7 @@ export const ZonePanel = () => {
       </div>
 
       <Button variant="secondary" onClick={addZone}>
-        + Zone toevoegen
+        + Ruimte toevoegen
       </Button>
     </div>
   );
