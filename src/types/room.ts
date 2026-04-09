@@ -37,45 +37,6 @@ export type FloorType = 'tiles' | 'wood' | 'laminate' | 'concrete' | 'vinyl' | '
 
 export type CeilingType = 'plaster' | 'suspended' | 'wood' | 'concrete' | 'other';
 
-export type ZonePlacementMode = 'binnen' | 'buiten' | 'vrij';
-
-export type SpaceType =
-  // Natte ruimtes
-  | 'wc'
-  | 'douche'
-  | 'badkamer'
-  // Wasruimte
-  | 'washok'
-  // Opslag & technisch
-  | 'berging'
-  | 'inloopkast'
-  | 'kledingkast'
-  | 'meterkast'
-  | 'cv-ruimte'
-  | 'bijkeuken'
-  // Leefruimtes
-  | 'woonkamer'
-  | 'keuken'
-  | 'eetkamer'
-  | 'slaapkamer'
-  | 'kinderkamer'
-  | 'werkkamer'
-  // Overig
-  | 'entree'
-  | 'gang'
-  | 'hobbyruimte'
-  | 'garage'
-  | 'overig';
-
-export interface SubSpace {
-  id: string;
-  name: string;
-  spaceType?: SpaceType;
-  width: number;
-  length: number;
-  position: { x: number; y: number };
-}
-
 export interface FloorSpec {
   type?: FloorType;
   area: number;
@@ -92,17 +53,12 @@ export interface Room {
   id: string;
   name: string;
   roomType: RoomType;
-  /** Which preset was the starting point. */
+  /** Which preset was used to seed the polygon; vertices may be edited freely afterwards. */
   preset: RoomPreset;
-  /** The room shape as a closed polygon (clockwise, cm). */
   vertices: RoomVertex[];
-  /** Ceiling height in cm. */
   height: number;
-  /** One wall per edge: vertices[i] → vertices[(i+1) % n]. */
   walls: Wall[];
-  subSpaces: SubSpace[];
   floor: FloorSpec;
   ceiling: CeilingSpec;
-  /** Position on the project floor-plan canvas (Konva world coords). */
   position: { x: number; y: number };
 }

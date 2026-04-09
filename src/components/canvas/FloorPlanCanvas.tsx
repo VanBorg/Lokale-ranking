@@ -1,4 +1,4 @@
-import { useRef, useEffect, useLayoutEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { Stage, Layer } from 'react-konva';
 import { DEFAULT_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../../constants/canvas';
 import { useUiStore } from '../../store/uiStore';
@@ -11,7 +11,6 @@ import {
   getPanFloorPlanMapCentered,
   panToCenterRoomOnViewport,
 } from '../../utils/canvasView';
-import { getWizardCanvasMode } from '../../utils/wizardCanvas';
 import { CanvasGrid } from './CanvasGrid';
 import { CanvasToolbar } from './CanvasToolbar';
 import { RoomBlock } from './RoomBlock';
@@ -52,25 +51,17 @@ export const FloorPlanCanvas = () => {
   const setFloorPlanViewport = useUiStore((s) => s.setFloorPlanViewport);
   const zoomValue = useUiStore((s) => s.canvasZoom);
   const wizardOpen = useUiStore((s) => s.wizardOpen);
-  const activeStep = useUiStore((s) => s.activeStep);
   const gridVisible = useUiStore((s) => s.gridVisible);
 
   const rooms = useProjectStore((s) => s.project.rooms);
   const draft = useRoomStore((s) => s.draft);
   const editingRoomId = useRoomStore((s) => s.editingRoomId);
   const updateVertex = useRoomStore((s) => s.updateVertex);
-  const updateSubSpace = useRoomStore((s) => s.updateSubSpace);
-  const zonePlacementMode = useRoomStore((s) => s.draft.zonePlacementMode);
 
   const editingRoom =
     wizardOpen && editingRoomId ? rooms.find((r) => r.id === editingRoomId) : undefined;
   /** New-room draft uses local state; editing uses the saved room position (avoids setState in an effect). */
   const roomPreviewWorldPos = editingRoom ? editingRoom.position : draftPreviewPos;
-
-  const wizardCanvasMode = useMemo(
-    () => getWizardCanvasMode(wizardOpen, activeStep),
-    [wizardOpen, activeStep],
-  );
 
   const vpW = Math.max(size.width, 1);
   const vpH = Math.max(size.height, 1);
@@ -242,12 +233,8 @@ export const FloorPlanCanvas = () => {
               y={roomPreviewWorldPos.y}
               vertices={draft.vertices}
               walls={draft.walls}
-              subSpaces={draft.subSpaces}
               roomType={draft.roomType}
-              canvasMode={wizardCanvasMode}
-              zonePlacementMode={zonePlacementMode}
               onVertexDrag={(index, pos) => updateVertex(index, pos)}
-              onZoneChange={(id, updates) => updateSubSpace(id, updates)}
             />
           </Layer>
         )}

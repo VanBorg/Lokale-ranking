@@ -1,13 +1,9 @@
 import { useUiStore } from '../../store/uiStore';
 import { WizardNavigation } from './WizardNavigation';
 import { Step1Shape } from './steps/Step1Shape';
-import { Step2Spaces } from './steps/Step2Spaces';
-
-const steps = [Step1Shape, Step2Spaces];
 
 export const RoomWizard = () => {
   const wizardOpen = useUiStore((s) => s.wizardOpen);
-  const activeStep = useUiStore((s) => s.activeStep);
 
   if (!wizardOpen) {
     return (
@@ -20,12 +16,10 @@ export const RoomWizard = () => {
     );
   }
 
-  const StepComponent = steps[activeStep];
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        <StepComponent />
+        <Step1Shape />
       </div>
       <WizardNavigation />
     </div>

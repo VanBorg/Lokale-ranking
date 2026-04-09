@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import type Konva from 'konva';
 import { Group, Line, Circle, Text } from 'react-konva';
-import type { RoomType, RoomVertex, SubSpace, ZonePlacementMode } from '../../types/room';
+import type { RoomType, RoomVertex } from '../../types/room';
 import type { Wall } from '../../types/wall';
 import {
   verticesToKonvaPoints,
@@ -13,11 +13,9 @@ import {
   edgeLength,
   isVertexFrozen,
 } from '../../utils/geometry';
-import type { WizardCanvasMode } from '../../utils/wizardCanvas';
 import { useRoomStore } from '../../store/roomStore';
 import { useUiStore } from '../../store/uiStore';
 import { KONVA_COLORS, KONVA_FONT_FAMILY } from '../../design/konva';
-import { ZoneLayer } from './ZoneLayer';
 import { RoomTypeIconBox } from './RoomTypeIconBox';
 
 /** Screen px — actual size is stabilised via inverse scale under the zoomed Stage. */
@@ -32,41 +30,28 @@ interface RoomPreviewProps {
   y: number;
   vertices: RoomVertex[];
   walls: Wall[];
-  subSpaces: SubSpace[];
   roomType: RoomType;
-  canvasMode: WizardCanvasMode;
-  zonePlacementMode: ZonePlacementMode;
   onVertexDrag?: (index: number, pos: { x: number; y: number }) => void;
   onVertexDragEnd?: () => void;
-  onZoneChange?: (id: string, updates: Partial<SubSpace>) => void;
 }
 
-/** Wizard draft room on the floor-plan canvas: polygon, dimensions, corner angles, zones, handles. */
+/** Wizard draft room on the floor-plan canvas: polygon, dimensions, corner angles, handles. */
 export const RoomPreview = ({
   x,
   y,
   vertices,
   walls,
-  subSpaces,
   roomType,
-  canvasMode,
-  zonePlacementMode,
   onVertexDrag,
   onVertexDragEnd,
-  onZoneChange,
 }: RoomPreviewProps) => {
   const canvasZoom = useUiStore((s) => s.canvasZoom);
   const hoveredWallIndex = useUiStore((s) => s.hoveredWallIndex);
-  const setSelectedZoneId = useUiStore((s) => s.setSelectedZoneId);
   const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
 
   /** Keeps label size & padding readable at any floor-plan zoom (Stage scales the whole layer). */
   const z = Math.max(canvasZoom, 0.2);
   const invZ = 1 / z;
-
-  const isOutlineMode = canvasMode === 'room-outline';
-  const isZoneMode = canvasMode === 'sub-space-layout';
-  const isDimmed = canvasMode === 'walls-preview' || canvasMode === 'overview-preview';
 
   /** Vertex position in cm from the dragged node's parent-local coordinates. */
   const vertexCmFromDragTarget = useCallback(
@@ -170,7 +155,7 @@ export const RoomPreview = ({
   }, [vertices, z]);
 
   return (
-    <Group x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening onClick={() => setSelectedZoneId(null)}>
+    <Group x={x} y={y} opacity={0.85} listening>
       {/* Room outline */}
       <Line
         listening={false}
@@ -178,13 +163,12 @@ export const RoomPreview = ({
         closed
         fill={KONVA_COLORS.previewFill}
         stroke={KONVA_COLORS.previewStroke}
-        strokeWidth={isOutlineMode ? 2.5 : 3}
-        dash={isOutlineMode ? [8, 4] : undefined}
+        strokeWidth={2.5}
+        dash={[8, 4]}
       />
 
-      {/* Sidebar hover + slot: zelfde rand als “Wand A”, “Wand B”, …; vergrendeld blijft oranje */}
-      {isOutlineMode &&
-        walls.map((_, i) => {
+      {/* Sidebar hover + slot: same edge treatment as wall labels; locked keeps accent border */}
+      {walls.map((_, i) => {
           const st = wallStates[i];
           if (!st?.emphasise) return null;
           const v1 = vertices[i]!;
@@ -203,9 +187,8 @@ export const RoomPreview = ({
           );
         })}
 
-      {/* Vertex drag handles — only in room-outline mode; key=index: RoomVertex has no id, drag uses index */}
-      {isOutlineMode &&
-        vertices.map((v, i) => {
+      {/* Vertex drag handles — key=index: RoomVertex has no id, drag uses index */}
+      {vertices.map((v, i) => {
           const frozen = isVertexFrozen(i, walls, lockedWallIds);
           return (
             <Group
@@ -251,17 +234,8 @@ export const RoomPreview = ({
           );
         })}
 
-      {/* Zone rectangles — always visible, interactive only in sub-space-layout mode */}
-      <ZoneLayer
-        subSpaces={subSpaces}
-        vertices={vertices}
-        zonePlacementMode={zonePlacementMode}
-        interactive={isZoneMode}
-        onZoneChange={onZoneChange}
-      />
-
-      {/* Wall lengths + corner angles — only in room-outline mode (slide 1). */}
-      {isOutlineMode && walls.map((_, i) => {
+      {/* Wall lengths + corner labels */}
+      {walls.map((_, i) => {
         const v1 = vertices[i]!;
         const v2 = vertices[(i + 1) % vertices.length]!;
         const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
@@ -275,7 +249,7 @@ export const RoomPreview = ({
         const edgeCm = edgeLength(v1, v2);
         const label = `${String.fromCharCode(65 + i)} ${(edgeCm / 100).toFixed(2)} m`;
         const approxHalfW = label.length * WALL_LABEL_FONT_SIZE * 0.32;
-        const emphasise = isOutlineMode && (wallStates[i]?.emphasise ?? false);
+        const emphasise = wallStates[i]?.emphasise ?? false;
         return (
           <Group key={`wl-${i}`} x={mx + nx} y={my + ny} scaleX={invZ} scaleY={invZ} listening={false}>
             <Text
@@ -307,7 +281,7 @@ export const RoomPreview = ({
         );
       })}
 
-      {isOutlineMode && vertices.map((_, i) => {
+      {vertices.map((_, i) => {
         const deg = interiorAnglesDeg[i] ?? 0;
         const pos = angleLabelCentres[i];
         if (!pos) return null;
@@ -337,7 +311,7 @@ export const RoomPreview = ({
         );
       })}
 
-      {!isZoneMode && iconCentre && (
+      {iconCentre && (
         <RoomTypeIconBox cx={iconCentre.cx} cy={iconCentre.cy} roomType={roomType} />
       )}
     </Group>

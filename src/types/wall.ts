@@ -1,50 +1,13 @@
-export type WallElementType =
-  | 'door'
-  | 'window'
-  | 'radiator'
-  | 'outlet'
-  | 'switch'
-  | 'vent'
-  | 'pipe'
-  | 'beam'
-  | 'niche';
-
-export type WallDetailType =
-  | 'tiled'
-  | 'half-tiled'
-  | 'painted'
-  | 'wallpaper'
-  | 'damaged'
-  | 'hole'
-  | 'moisture'
-  | 'crack'
-  | 'insulated'
-  | 'other';
-
-export interface WallElement {
-  id: string;
-  type: WallElementType;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface WallDetail {
-  id: string;
-  type: WallDetailType;
-  description?: string;
-  area?: { x: number; y: number; width: number; height: number };
-}
-
+/** Eén wandsegment van de kamerpolygoon (rechte of schuine rand). */
 export interface Wall {
   id: string;
   label: string;
+  /** Randlengte in cm (langs de vloer). */
   width: number;
+  /** Hoogte in cm. */
   height: number;
+  /** Bruto wandoppervlak in m². */
   surfaceArea: number;
+  /** Netto m² — gelijk aan `surfaceArea` tot er later openingen worden gemodelleerd. */
   netArea: number;
-  elements: WallElement[];
-  details: WallDetail[];
-  photos: string[];
 }

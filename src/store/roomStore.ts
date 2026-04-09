@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import type {
-  Room, RoomType, RoomPreset, RoomVertex, SubSpace, FloorType, CeilingType, ZonePlacementMode,
+  Room, RoomType, RoomPreset, RoomVertex, FloorType, CeilingType,
 } from '../types/room';
-import type { Wall, WallElement, WallDetail } from '../types/wall';
+import type { Wall } from '../types/wall';
 import { generateWallsFromVertices } from '../utils/wallGenerator';
 import {
-  calcNetArea,
   verticesBoundingBox,
   ROOM_CANVAS_SCALE,
   rotateVertices90CW,
@@ -19,7 +18,6 @@ import { calcPolygonArea, midpoint } from '../utils/geometry';
 import { createPresetVertices } from '../utils/presets';
 import { generateId } from '../utils/idGenerator';
 import { suggestNextRoomName } from '../utils/roomNaming';
-import { isZonePlacementValid, getZoneWallSnapPosition } from '../utils/subSpaceContainment';
 import { useProjectStore } from './projectStore';
 import { useUiStore } from './uiStore';
 import { getFloorPlanMapSizePx } from '../utils/geometry';
@@ -32,8 +30,6 @@ interface RoomDraft {
   vertices: RoomVertex[];
   height: number;
   walls: Wall[];
-  subSpaces: SubSpace[];
-  zonePlacementMode: ZonePlacementMode;
   lockedWallIds: string[];
   floorType?: FloorType;
   ceilingType?: CeilingType;
@@ -57,22 +53,10 @@ interface RoomStoreState {
   setCeilingType: (type: CeilingType | undefined) => void;
   setFloorNotes: (notes: string) => void;
   setCeilingNotes: (notes: string) => void;
-  setZonePlacementMode: (mode: ZonePlacementMode) => void;
 
   rotateRoom: () => void;
   rotateRoomCCW: () => void;
 
-  addSubSpace: (subSpace: SubSpace) => void;
-  removeSubSpace: (id: string) => void;
-  updateSubSpace: (id: string, updates: Partial<SubSpace>) => void;
-
-  addWallElement: (wallId: string, element: WallElement) => void;
-  updateWallElement: (wallId: string, elementId: string, updates: Partial<WallElement>) => void;
-  removeWallElement: (wallId: string, elementId: string) => void;
-  addWallDetail: (wallId: string, detail: WallDetail) => void;
-  removeWallDetail: (wallId: string, detailId: string) => void;
-  addWallPhoto: (wallId: string, dataUrl: string) => void;
-  removeWallPhoto: (wallId: string, index: number) => void;
   toggleWallLock: (wallId: string) => void;
 
   loadRoom: (room: Room) => void;
@@ -98,8 +82,6 @@ const createEmptyDraft = (): RoomDraft => {
     vertices,
     height,
     walls: generateWallsFromVertices(vertices, height),
-    subSpaces: [],
-    zonePlacementMode: 'binnen',
     lockedWallIds: [],
     floorType: undefined,
     ceilingType: undefined,
@@ -107,25 +89,6 @@ const createEmptyDraft = (): RoomDraft => {
     ceilingNotes: '',
   };
 };
-
-const recalcWallNetAreas = (walls: Wall[]): Wall[] =>
-  walls.map((w) => ({ ...w, netArea: calcNetArea(w) }));
-
-/** Re-validate sub-spaces after vertex/height change. Keeps valid ones, marks invalid. */
-const revalidateSubSpaces = (
-  subSpaces: SubSpace[],
-  vertices: RoomVertex[],
-  mode: ZonePlacementMode,
-): SubSpace[] =>
-  subSpaces.filter((s) =>
-    isZonePlacementValid(
-      s.position.x, s.position.y, s.width, s.length,
-      vertices,
-      subSpaces,
-      s.id,
-      mode,
-    ),
-  );
 
 export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   draft: createEmptyDraft(),
@@ -141,8 +104,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       );
       // Completely new shape — fresh wall IDs; clear any stale locks.
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, preset, vertices, walls, subSpaces, lockedWallIds: [] } };
+      return { draft: { ...d, preset, vertices, walls, lockedWallIds: [] } };
     }),
 
   updateVertex: (index, pos) =>
@@ -152,8 +114,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const snapped = { x: snapCmForRoomVertex(pos.x), y: snapCmForRoomVertex(pos.y) };
       const vertices = d.vertices.map((v, i) => (i === index ? snapped : v));
       const walls = generateWallsFromVertices(vertices, d.height, d.walls);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, vertices, walls, subSpaces } };
+      return { draft: { ...d, vertices, walls } };
     }),
 
   addVertex: (afterIndex) =>
@@ -178,8 +139,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       if (d.vertices.length <= 3) return state;
       const vertices = d.vertices.filter((_, i) => i !== index);
       const walls = generateWallsFromVertices(vertices, d.height);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, vertices, walls, subSpaces } };
+      return { draft: { ...d, vertices, walls } };
     }),
 
   setVertices: (vertices) =>
@@ -187,8 +147,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const d = state.draft;
       vertices = snapVerticesCmToGrid(vertices);
       const walls = generateWallsFromVertices(vertices, d.height, d.walls);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, vertices, walls, subSpaces } };
+      return { draft: { ...d, vertices, walls } };
     }),
 
   setHeight: (height) =>
@@ -220,27 +179,12 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   setCeilingNotes: (notes) =>
     set((state) => ({ draft: { ...state.draft, ceilingNotes: notes } })),
 
-  setZonePlacementMode: (mode) =>
-    set((state) => {
-      const d = state.draft;
-      // Re-snap every zone to the new wall side so the mode change is immediately visible
-      // and zones are valid for the next drag operation.
-      const snappedSubSpaces = d.subSpaces.map((s) => {
-        const pos = getZoneWallSnapPosition(
-          s.position.x, s.position.y, s.width, s.length, d.vertices, mode,
-        );
-        return { ...s, position: pos };
-      });
-      return { draft: { ...d, zonePlacementMode: mode, subSpaces: snappedSubSpaces } };
-    }),
-
   rotateRoom: () =>
     set((state) => {
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CW(d.vertices));
       const walls = generateWallsFromVertices(vertices, d.height, d.walls);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, vertices, walls, subSpaces } };
+      return { draft: { ...d, vertices, walls } };
     }),
 
   rotateRoomCCW: () =>
@@ -248,99 +192,8 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CCW(d.vertices));
       const walls = generateWallsFromVertices(vertices, d.height, d.walls);
-      const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, vertices, walls, subSpaces } };
+      return { draft: { ...d, vertices, walls } };
     }),
-
-  addSubSpace: (subSpace) =>
-    set((state) => ({
-      draft: { ...state.draft, subSpaces: [...state.draft.subSpaces, subSpace] },
-    })),
-
-  removeSubSpace: (id) =>
-    set((state) => ({
-      draft: { ...state.draft, subSpaces: state.draft.subSpaces.filter((s) => s.id !== id) },
-    })),
-
-  updateSubSpace: (id, updates) =>
-    set((state) => ({
-      draft: {
-        ...state.draft,
-        subSpaces: state.draft.subSpaces.map((s) =>
-          s.id === id ? { ...s, ...updates } : s,
-        ),
-      },
-    })),
-
-  addWallElement: (wallId, element) =>
-    set((state) => {
-      const walls = state.draft.walls.map((w) =>
-        w.id === wallId ? { ...w, elements: [...w.elements, element] } : w,
-      );
-      return { draft: { ...state.draft, walls: recalcWallNetAreas(walls) } };
-    }),
-
-  updateWallElement: (wallId, elementId, updates) =>
-    set((state) => {
-      const walls = state.draft.walls.map((w) =>
-        w.id === wallId
-          ? { ...w, elements: w.elements.map((e) => (e.id === elementId ? { ...e, ...updates } : e)) }
-          : w,
-      );
-      return { draft: { ...state.draft, walls: recalcWallNetAreas(walls) } };
-    }),
-
-  removeWallElement: (wallId, elementId) =>
-    set((state) => {
-      const walls = state.draft.walls.map((w) =>
-        w.id === wallId
-          ? { ...w, elements: w.elements.filter((e) => e.id !== elementId) }
-          : w,
-      );
-      return { draft: { ...state.draft, walls: recalcWallNetAreas(walls) } };
-    }),
-
-  addWallDetail: (wallId, detail) =>
-    set((state) => ({
-      draft: {
-        ...state.draft,
-        walls: state.draft.walls.map((w) =>
-          w.id === wallId ? { ...w, details: [...w.details, detail] } : w,
-        ),
-      },
-    })),
-
-  removeWallDetail: (wallId, detailId) =>
-    set((state) => ({
-      draft: {
-        ...state.draft,
-        walls: state.draft.walls.map((w) =>
-          w.id === wallId
-            ? { ...w, details: w.details.filter((d) => d.id !== detailId) }
-            : w,
-        ),
-      },
-    })),
-
-  addWallPhoto: (wallId, dataUrl) =>
-    set((state) => ({
-      draft: {
-        ...state.draft,
-        walls: state.draft.walls.map((w) =>
-          w.id === wallId ? { ...w, photos: [...w.photos, dataUrl] } : w,
-        ),
-      },
-    })),
-
-  removeWallPhoto: (wallId, index) =>
-    set((state) => ({
-      draft: {
-        ...state.draft,
-        walls: state.draft.walls.map((w) =>
-          w.id === wallId ? { ...w, photos: w.photos.filter((_, i) => i !== index) } : w,
-        ),
-      },
-    })),
 
   toggleWallLock: (wallId) =>
     set((state) => {
@@ -360,9 +213,14 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         preset: room.preset,
         vertices: room.vertices,
         height: room.height,
-        walls: room.walls,
-        subSpaces: room.subSpaces,
-        zonePlacementMode: 'binnen',
+        walls: room.walls.map((w) => ({
+          id: w.id,
+          label: w.label,
+          width: w.width,
+          height: w.height,
+          surfaceArea: w.surfaceArea,
+          netArea: w.surfaceArea,
+        })),
         lockedWallIds: [],
         floorType: room.floor.type,
         ceilingType: room.ceiling.type,
@@ -418,7 +276,6 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       vertices: draft.vertices,
       height: draft.height,
       walls: draft.walls,
-      subSpaces: draft.subSpaces,
       floor: { area: floorArea, type: draft.floorType, notes: draft.floorNotes || undefined },
       ceiling: { area: floorArea, type: draft.ceilingType, notes: draft.ceilingNotes || undefined },
       position,

@@ -1,5 +1,5 @@
-import type { Wall } from '../types/wall';
 import type { RoomVertex } from '../types/room';
+import type { Wall } from '../types/wall';
 import { MIN_CANVAS_ZOOM } from '../constants/canvas';
 
 /** Pixels per cm on the floor-plan canvas. */
@@ -112,14 +112,6 @@ export const mToCm = (m: number): number => Math.round(m * 100);
 
 export const calcSurfaceArea = (widthCm: number, heightCm: number): number =>
   parseFloat((cmToM(widthCm) * cmToM(heightCm)).toFixed(2));
-
-export const calcNetArea = (wall: Wall): number => {
-  const elementsArea = wall.elements.reduce(
-    (sum, el) => sum + cmToM(el.width) * cmToM(el.height),
-    0,
-  );
-  return parseFloat(Math.max(0, wall.surfaceArea - elementsArea).toFixed(2));
-};
 
 /** Vertices (cm) → flat Konva points [x, y, x, y, …] in canvas pixels. */
 export function verticesToKonvaPoints(vertices: RoomVertex[], scale: number): number[] {

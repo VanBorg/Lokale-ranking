@@ -6,12 +6,8 @@ import { edgeLength, calcSurfaceArea } from './geometry';
 /**
  * Generate one wall per edge of the polygon.
  * Edge i: vertices[i] → vertices[(i+1) % n].
- * Wall width = edge length (works for straight and diagonal edges).
- *
- * When `existingWalls` has the same length as `vertices`, the wall at each
- * position keeps its original id, elements, details and photos so that
- * lockedWallIds and user-entered wall data survive vertex-drag and height
- * changes.
+ * When `existingWalls` has the same length as `vertices`, each wall keeps its id
+ * so lockedWallIds stay valid across vertex-drag and height changes.
  */
 export function generateWallsFromVertices(
   vertices: RoomVertex[],
@@ -33,9 +29,6 @@ export function generateWallsFromVertices(
       height: heightCm,
       surfaceArea,
       netArea: surfaceArea,
-      elements: existing?.elements ?? [],
-      details: existing?.details ?? [],
-      photos: existing?.photos ?? [],
     };
   });
 }

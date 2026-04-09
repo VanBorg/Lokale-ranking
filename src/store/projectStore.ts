@@ -76,6 +76,6 @@ export const useProjectStore = create<ProjectState>()(
           },
         })),
     }),
-    { name: 'oranje-prints-project' },
+    { name: 'pixel-blueprint-project' },
   ),
 );
