@@ -39,9 +39,38 @@ export type CeilingType = 'plaster' | 'suspended' | 'wood' | 'concrete' | 'other
 
 export type ZonePlacementMode = 'binnen' | 'buiten' | 'vrij';
 
+export type SpaceType =
+  // Natte ruimtes
+  | 'wc'
+  | 'douche'
+  | 'badkamer'
+  // Wasruimte
+  | 'washok'
+  // Opslag & technisch
+  | 'berging'
+  | 'inloopkast'
+  | 'kledingkast'
+  | 'meterkast'
+  | 'cv-ruimte'
+  | 'bijkeuken'
+  // Leefruimtes
+  | 'woonkamer'
+  | 'keuken'
+  | 'eetkamer'
+  | 'slaapkamer'
+  | 'kinderkamer'
+  | 'werkkamer'
+  // Overig
+  | 'entree'
+  | 'gang'
+  | 'hobbyruimte'
+  | 'garage'
+  | 'overig';
+
 export interface SubSpace {
   id: string;
   name: string;
+  spaceType?: SpaceType;
   width: number;
   length: number;
   position: { x: number; y: number };

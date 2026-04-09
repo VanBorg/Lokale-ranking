@@ -12,6 +12,7 @@ interface UiState {
   wizardOpen: boolean;
   gridVisible: boolean;
   hoveredWallIndex: number | null;
+  selectedZoneId: string | null;
 
   setActiveStep: (step: number) => void;
   nextStep: () => void;
@@ -25,6 +26,7 @@ interface UiState {
   toggleGrid: () => void;
   resetUi: () => void;
   setHoveredWallIndex: (index: number | null) => void;
+  setSelectedZoneId: (id: string | null) => void;
 }
 
 const TOTAL_STEPS = 4;
@@ -39,12 +41,13 @@ export const useUiStore = create<UiState>()((set) => ({
   wizardOpen: false,
   gridVisible: true,
   hoveredWallIndex: null,
+  selectedZoneId: null,
 
   setActiveStep: (step) => set({ activeStep: step }),
   nextStep: () =>
-    set((s) => ({ activeStep: Math.min(s.activeStep + 1, TOTAL_STEPS - 1), hoveredWallIndex: null })),
+    set((s) => ({ activeStep: Math.min(s.activeStep + 1, TOTAL_STEPS - 1), hoveredWallIndex: null, selectedZoneId: null })),
   prevStep: () =>
-    set((s) => ({ activeStep: Math.max(s.activeStep - 1, 0), hoveredWallIndex: null })),
+    set((s) => ({ activeStep: Math.max(s.activeStep - 1, 0), hoveredWallIndex: null, selectedZoneId: null })),
   setActiveWallIndex: (index) => set({ activeWallIndex: index }),
   setCanvasZoom: (zoom) =>
     set({ canvasZoom: Math.min(3, Math.max(MIN_CANVAS_ZOOM, zoom)) }),
@@ -52,9 +55,10 @@ export const useUiStore = create<UiState>()((set) => ({
   setFloorPlanViewport: (width, height) =>
     set({ floorPlanViewportWidth: width, floorPlanViewportHeight: height }),
   openWizard: () => set({ wizardOpen: true, activeStep: 0, activeWallIndex: 0 }),
-  closeWizard: () => set({ wizardOpen: false, hoveredWallIndex: null }),
+  closeWizard: () => set({ wizardOpen: false, hoveredWallIndex: null, selectedZoneId: null }),
   toggleGrid: () => set((s) => ({ gridVisible: !s.gridVisible })),
   resetUi: () =>
-    set({ activeStep: 0, activeWallIndex: 0, wizardOpen: false, hoveredWallIndex: null }),
+    set({ activeStep: 0, activeWallIndex: 0, wizardOpen: false, hoveredWallIndex: null, selectedZoneId: null }),
   setHoveredWallIndex: (index) => set({ hoveredWallIndex: index }),
+  setSelectedZoneId: (id) => set({ selectedZoneId: id }),
 }));

@@ -3,18 +3,18 @@ import { generateId } from '../../../../utils/idGenerator';
 import { isZonePlacementValid, getZoneWallSnapPosition } from '../../../../utils/subSpaceContainment';
 import type { SubSpace } from '../../../../types/room';
 
-const DEFAULT_ZONE_CM = 100;
+const DEFAULT_ZONE_CM = 200;
 
 const getNextZoneName = (spaces: SubSpace[]): string => {
   let maxIndex = 0;
   spaces.forEach((s) => {
-    const match = /^Zone(\d+)$/i.exec(s.name.trim());
+    const match = /^Ruimte(\d+)$/i.exec(s.name.trim());
     if (match) {
       const n = parseInt(match[1]!, 10);
       if (n > maxIndex) maxIndex = n;
     }
   });
-  return `Zone${maxIndex + 1}`;
+  return `Ruimte${maxIndex + 1}`;
 };
 
 export const useAddZone = () => {
