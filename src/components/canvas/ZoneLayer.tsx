@@ -87,8 +87,19 @@ export const ZoneLayer = ({
             onClick={() => {
               if (interactive) setSelectedZoneId(isSelected ? null : s.id);
             }}
-            onDragStart={() => {
+            onMouseEnter={(e) => {
+              if (!interactive) return;
+              const c = e.target.getStage()?.container();
+              if (c) c.style.cursor = 'grab';
+            }}
+            onMouseLeave={(e) => {
+              const c = e.target.getStage()?.container();
+              if (c) c.style.cursor = '';
+            }}
+            onDragStart={(e) => {
               prevPositions.current.set(s.id, { ...s.position });
+              const c = e.target.getStage()?.container();
+              if (c) c.style.cursor = 'grabbing';
             }}
             onDragMove={(e) => {
               const cmX = snapCmForRoomVertex(e.target.x() / ROOM_CANVAS_SCALE);
@@ -100,6 +111,8 @@ export const ZoneLayer = ({
               });
             }}
             onDragEnd={(e) => {
+              const c = e.target.getStage()?.container();
+              if (c) c.style.cursor = 'grab';
               if (!onZoneChange) return;
               const cmX = snapCmForRoomVertex(e.target.x() / ROOM_CANVAS_SCALE);
               const cmY = snapCmForRoomVertex(e.target.y() / ROOM_CANVAS_SCALE);
@@ -161,6 +174,7 @@ export const ZoneLayer = ({
                     cx === 0 ? t.x() : t.x() + handleSize;
                   const cornerPxY = (t: Konva.Node) =>
                     cy === 0 ? t.y() : t.y() + handleSize;
+                  const resizeCursor = (corner === 'tl' || corner === 'br') ? 'nwse-resize' : 'nesw-resize';
                   return (
                     <Rect
                       key={`${s.id}-${corner}`}
@@ -174,6 +188,14 @@ export const ZoneLayer = ({
                       cornerRadius={2}
                       draggable
                       dragDistance={2}
+                      onMouseEnter={(e) => {
+                        const c = e.target.getStage()?.container();
+                        if (c) c.style.cursor = resizeCursor;
+                      }}
+                      onMouseLeave={(e) => {
+                        const c = e.target.getStage()?.container();
+                        if (c) c.style.cursor = 'grab';
+                      }}
                       onDragStart={(e) => {
                         e.cancelBubble = true;
                         prevSizes.current.set(s.id, {
@@ -182,6 +204,8 @@ export const ZoneLayer = ({
                           w: s.width,
                           h: s.length,
                         });
+                        const c = e.target.getStage()?.container();
+                        if (c) c.style.cursor = resizeCursor;
                       }}
                       onDragMove={(e) => {
                         e.cancelBubble = true;
@@ -193,6 +217,8 @@ export const ZoneLayer = ({
                       }}
                       onDragEnd={(e) => {
                         e.cancelBubble = true;
+                        const c = e.target.getStage()?.container();
+                        if (c) c.style.cursor = resizeCursor;
                         if (!onZoneChange) return;
                         const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
                         const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
