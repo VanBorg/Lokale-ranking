@@ -66,7 +66,7 @@ export const ZoneLayer = ({
 
         const isSelected = selectedZoneId === s.id;
         const minSide = Math.min(zw, zh);
-        const handleSize = Math.min(12, Math.max(8, minSide / 6));
+        const handleSize = Math.min(16, Math.max(11, minSide / 6));
 
         // Icon sizing: fits nicely for a 200cm zone at typical zoom
         const iconBoxSize = Math.min(44, Math.max(24, minSide * 0.4));
