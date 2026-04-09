@@ -266,3 +266,26 @@ export function isVertexFrozen(
     lockedWallIds.includes(walls[(index - 1 + n) % n]?.id ?? '')
   );
 }
+
+/** Regular polygon with `corners` vertices inscribed in a `sizeCm` bounding box, origin-normalised. */
+export function createRegularPolygon(corners: 3 | 4 | 5, sizeCm: number): RoomVertex[] {
+  if (corners === 4) {
+    return [
+      { x: 0, y: 0 },
+      { x: sizeCm, y: 0 },
+      { x: sizeCm, y: sizeCm },
+      { x: 0, y: sizeCm },
+    ];
+  }
+  const r = sizeCm / 2;
+  const verts: RoomVertex[] = [];
+  for (let i = 0; i < corners; i++) {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / corners;
+    verts.push({
+      x: Math.round(r + r * Math.cos(angle)),
+      y: Math.round(r + r * Math.sin(angle)),
+    });
+  }
+  const bb = verticesBoundingBox(verts);
+  return verts.map((v) => ({ x: v.x - bb.minX, y: v.y - bb.minY }));
+}

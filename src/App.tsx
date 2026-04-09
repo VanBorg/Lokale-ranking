@@ -3,10 +3,18 @@ import { AppLayout } from './components/layout/AppLayout';
 import { FloorPlanCanvas } from './components/canvas/FloorPlanCanvas';
 import { RoomWizard } from './components/room-wizard/RoomWizard';
 import { Dashboard } from './pages/Dashboard';
+import { useUiStore } from './store/uiStore';
 
-const BlueprintCreator = () => (
-  <AppLayout canvas={<FloorPlanCanvas />} wizard={<RoomWizard />} />
-);
+const BlueprintCreator = () => {
+  const floorPlanOpen = useUiStore((s) => s.floorPlanOpen);
+  return (
+    <AppLayout
+      canvas={<FloorPlanCanvas />}
+      wizard={<RoomWizard />}
+      floorPlanOnly={floorPlanOpen}
+    />
+  );
+};
 
 export const App = () => (
   <Routes>

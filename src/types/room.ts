@@ -49,6 +49,19 @@ export interface CeilingSpec {
   notes?: string;
 }
 
+/** A sub-room placed inside a parent room (e.g. bathroom, kitchen). */
+export interface SubRoom {
+  id: string;
+  name: string;
+  roomType: RoomType;
+  vertices: RoomVertex[];
+  walls: Wall[];
+  lockedWallIds: string[];
+  /** Position in cm within the parent room's coordinate space. */
+  position: { x: number; y: number };
+  notes: string;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -61,4 +74,5 @@ export interface Room {
   floor: FloorSpec;
   ceiling: CeilingSpec;
   position: { x: number; y: number };
+  subRooms: SubRoom[];
 }

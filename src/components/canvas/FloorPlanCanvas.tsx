@@ -1,5 +1,5 @@
-import { useRef, useEffect, useLayoutEffect, useState } from 'react';
-import { Stage, Layer } from 'react-konva';
+import { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
+import { Stage, Layer, Group, Line } from 'react-konva';
 import { DEFAULT_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from '../../constants/canvas';
 import { useUiStore } from '../../store/uiStore';
 import { useProjectStore } from '../../store/projectStore';
@@ -15,12 +15,16 @@ import { CanvasGrid } from './CanvasGrid';
 import { CanvasToolbar } from './CanvasToolbar';
 import { RoomBlock } from './RoomBlock';
 import { RoomPreview } from './RoomPreview';
+import { SubRoomOverlay } from './SubRoomOverlay';
 import {
   ROOM_CANVAS_SCALE,
   GRID_BUFFER_CELLS,
   GRID_MIN_CELLS,
   computeGridExtentCells,
+  verticesToKonvaPoints,
+  verticesBoundingBox,
 } from '../../utils/geometry';
+import { KONVA_COLORS } from '../../design/konva';
 
 /**
  * Measures the plattegrond viewport from the nearest `<main>` element.
@@ -52,6 +56,8 @@ export const FloorPlanCanvas = () => {
   const zoomValue = useUiStore((s) => s.canvasZoom);
   const wizardOpen = useUiStore((s) => s.wizardOpen);
   const gridVisible = useUiStore((s) => s.gridVisible);
+
+  const wizardStep = useUiStore((s) => s.wizardStep);
 
   const rooms = useProjectStore((s) => s.project.rooms);
   const draft = useRoomStore((s) => s.draft);
@@ -169,9 +175,35 @@ export const FloorPlanCanvas = () => {
     return () => observer.disconnect();
   }, [setCanvasZoom, setCanvasPan, setFloorPlanViewport]);
 
-  const z = zoom > 0 ? zoom : 1;
-  const worldLeft = -pan.x / z;
-  const worldTop = -pan.y / z;
+  // Step 2: compute a fixed fit-zoom/pan that centres the parent room in the viewport.
+  // Pan and zoom are locked — sub-rooms are dragged instead of the canvas.
+  const step2View = useMemo(() => {
+    if (wizardStep !== 2 || vpW <= 0 || vpH <= 0) return null;
+    const bb = verticesBoundingBox(draft.vertices);
+    const roomWPx = bb.width * ROOM_CANVAS_SCALE;
+    const roomHPx = bb.height * ROOM_CANVAS_SCALE;
+    const padding = 80;
+    const fitZoom = Math.min(
+      (vpW - padding * 2) / Math.max(roomWPx, 1),
+      (vpH - padding * 2) / Math.max(roomHPx, 1),
+    );
+    const roomCenterWorldX = roomPreviewWorldPos.x + roomWPx / 2;
+    const roomCenterWorldY = roomPreviewWorldPos.y + roomHPx / 2;
+    return {
+      zoom: fitZoom,
+      pan: {
+        x: vpW / 2 - roomCenterWorldX * fitZoom,
+        y: vpH / 2 - roomCenterWorldY * fitZoom,
+      },
+    };
+  }, [wizardStep, vpW, vpH, draft.vertices, roomPreviewWorldPos]);
+
+  const activeZoom = step2View ? step2View.zoom : zoom;
+  const activePan = step2View ? step2View.pan : pan;
+
+  const z = activeZoom > 0 ? activeZoom : 1;
+  const worldLeft = -activePan.x / z;
+  const worldTop = -activePan.y / z;
   const worldRight = worldLeft + vpW / z;
   const worldBottom = worldTop + vpH / z;
 
@@ -186,28 +218,32 @@ export const FloorPlanCanvas = () => {
     }
   };
 
+  const isStep2 = wizardStep === 2 && wizardOpen;
+
   return (
     <div
       ref={containerRef}
       data-debug-floor-canvas
       className="h-full w-full bg-app"
-      style={{ cursor: isStagePanning ? 'grabbing' : 'grab' }}
+      style={{ cursor: isStep2 ? 'default' : isStagePanning ? 'grabbing' : 'grab' }}
     >
       <Stage
         width={vpW}
         height={vpH}
-        scaleX={zoom}
-        scaleY={zoom}
-        x={pan.x}
-        y={pan.y}
-        draggable
-        onWheel={handleWheel}
+        scaleX={activeZoom}
+        scaleY={activeZoom}
+        x={activePan.x}
+        y={activePan.y}
+        draggable={!isStep2}
+        onWheel={isStep2 ? undefined : handleWheel}
         onDragStart={(e) => {
+          if (isStep2) return;
           if (e.target.draggable() && e.target !== e.target.getStage()) return;
           setIsStagePanning(true);
         }}
-        onDragMove={handleDragMove}
+        onDragMove={isStep2 ? undefined : handleDragMove}
         onDragEnd={(e) => {
+          if (isStep2) return;
           handleDragEnd(e);
           setIsStagePanning(false);
         }}
@@ -226,7 +262,7 @@ export const FloorPlanCanvas = () => {
             <RoomBlock key={room.id} room={room} dimmed={editingRoomId === room.id} />
           ))}
         </Layer>
-        {wizardOpen && (
+        {wizardOpen && wizardStep === 1 && (
           <Layer>
             <RoomPreview
               x={roomPreviewWorldPos.x}
@@ -235,6 +271,25 @@ export const FloorPlanCanvas = () => {
               walls={draft.walls}
               roomType={draft.roomType}
               onVertexDrag={(index, pos) => updateVertex(index, pos)}
+            />
+          </Layer>
+        )}
+        {wizardOpen && wizardStep === 2 && (
+          <Layer>
+            <Group x={roomPreviewWorldPos.x} y={roomPreviewWorldPos.y}>
+              <Line
+                points={verticesToKonvaPoints(draft.vertices, ROOM_CANVAS_SCALE)}
+                closed
+                fill={KONVA_COLORS.parentRoomFill}
+                stroke={KONVA_COLORS.parentRoomStroke}
+                strokeWidth={2}
+                listening={false}
+              />
+            </Group>
+            <SubRoomOverlay
+              parentPosition={roomPreviewWorldPos}
+              parentVertices={draft.vertices}
+              renderZoom={activeZoom}
             />
           </Layer>
         )}

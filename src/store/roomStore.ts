@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type {
-  Room, RoomType, RoomPreset, RoomVertex, FloorType, CeilingType,
+  Room, RoomType, RoomPreset, RoomVertex, FloorType, CeilingType, SubRoom,
 } from '../types/room';
 import type { Wall } from '../types/wall';
 import { generateWallsFromVertices } from '../utils/wallGenerator';
@@ -13,11 +13,12 @@ import {
   snapVertexCmToGrid,
   snapVerticesCmToGrid,
   isVertexFrozen,
+  createRegularPolygon,
 } from '../utils/geometry';
 import { calcPolygonArea, midpoint } from '../utils/geometry';
 import { createPresetVertices } from '../utils/presets';
 import { generateId } from '../utils/idGenerator';
-import { suggestNextRoomName } from '../utils/roomNaming';
+import { suggestNextRoomName, roomTypeLabels } from '../utils/roomNaming';
 import { useProjectStore } from './projectStore';
 import { useUiStore } from './uiStore';
 import { getFloorPlanMapSizePx } from '../utils/geometry';
@@ -35,6 +36,7 @@ interface RoomDraft {
   ceilingType?: CeilingType;
   floorNotes: string;
   ceilingNotes: string;
+  subRooms: SubRoom[];
 }
 
 interface RoomStoreState {
@@ -58,6 +60,15 @@ interface RoomStoreState {
   rotateRoomCCW: () => void;
 
   toggleWallLock: (wallId: string) => void;
+
+  addSubRoom: (corners: 3 | 4 | 5) => void;
+  removeSubRoom: (id: string) => void;
+  updateSubRoomVertex: (subRoomId: string, vertexIndex: number, pos: { x: number; y: number }) => void;
+  updateSubRoomPosition: (subRoomId: string, pos: { x: number; y: number }) => void;
+  setSubRoomName: (subRoomId: string, name: string) => void;
+  setSubRoomType: (subRoomId: string, roomType: RoomType) => void;
+  setSubRoomNotes: (subRoomId: string, notes: string) => void;
+  toggleSubRoomWallLock: (subRoomId: string, wallId: string) => void;
 
   loadRoom: (room: Room) => void;
   resetDraft: () => void;
@@ -87,6 +98,7 @@ const createEmptyDraft = (): RoomDraft => {
     ceilingType: undefined,
     floorNotes: '',
     ceilingNotes: '',
+    subRooms: [],
   };
 };
 
@@ -204,6 +216,106 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       return { draft: { ...state.draft, lockedWallIds: next } };
     }),
 
+  addSubRoom: (corners) =>
+    set((state) => {
+      const d = state.draft;
+      const vertices = createRegularPolygon(corners, 200);
+      const walls = generateWallsFromVertices(vertices, d.height);
+      const bb = verticesBoundingBox(d.vertices);
+      const subBb = verticesBoundingBox(vertices);
+      const position = {
+        x: Math.round(bb.width / 2 - subBb.width / 2),
+        y: Math.round(bb.height / 2 - subBb.height / 2),
+      };
+      const defaultType: RoomType = 'other';
+      const sameTypeCount = d.subRooms.filter((sr) => sr.roomType === defaultType).length + 1;
+      const defaultName = `${roomTypeLabels[defaultType]} ${sameTypeCount}`;
+      const subRoom: SubRoom = {
+        id: generateId(),
+        name: defaultName,
+        roomType: defaultType,
+        vertices,
+        walls,
+        lockedWallIds: [],
+        position,
+        notes: '',
+      };
+      return { draft: { ...d, subRooms: [...d.subRooms, subRoom] } };
+    }),
+
+  removeSubRoom: (id) =>
+    set((state) => ({
+      draft: { ...state.draft, subRooms: state.draft.subRooms.filter((sr) => sr.id !== id) },
+    })),
+
+  updateSubRoomVertex: (subRoomId, vertexIndex, pos) =>
+    set((state) => {
+      const d = state.draft;
+      const subRooms = d.subRooms.map((sr) => {
+        if (sr.id !== subRoomId) return sr;
+        if (isVertexFrozen(vertexIndex, sr.walls, sr.lockedWallIds)) return sr;
+        const snapped = { x: snapCmForRoomVertex(pos.x), y: snapCmForRoomVertex(pos.y) };
+        const vertices = sr.vertices.map((v, i) => (i === vertexIndex ? snapped : v));
+        const walls = generateWallsFromVertices(vertices, d.height, sr.walls);
+        return { ...sr, vertices, walls };
+      });
+      return { draft: { ...d, subRooms } };
+    }),
+
+  updateSubRoomPosition: (subRoomId, pos) =>
+    set((state) => {
+      const d = state.draft;
+      const subRooms = d.subRooms.map((sr) =>
+        sr.id === subRoomId ? { ...sr, position: pos } : sr,
+      );
+      return { draft: { ...d, subRooms } };
+    }),
+
+  setSubRoomName: (subRoomId, name) =>
+    set((state) => {
+      const d = state.draft;
+      const subRooms = d.subRooms.map((sr) =>
+        sr.id === subRoomId ? { ...sr, name } : sr,
+      );
+      return { draft: { ...d, subRooms } };
+    }),
+
+  setSubRoomType: (subRoomId, roomType) =>
+    set((state) => {
+      const d = state.draft;
+      const sameTypeCount = d.subRooms.filter(
+        (sr) => sr.roomType === roomType && sr.id !== subRoomId,
+      ).length + 1;
+      const suggestedName = `${roomTypeLabels[roomType]} ${sameTypeCount}`;
+      const subRooms = d.subRooms.map((sr) =>
+        sr.id === subRoomId ? { ...sr, roomType, name: suggestedName } : sr,
+      );
+      return { draft: { ...d, subRooms } };
+    }),
+
+  setSubRoomNotes: (subRoomId, notes) =>
+    set((state) => {
+      const d = state.draft;
+      const subRooms = d.subRooms.map((sr) =>
+        sr.id === subRoomId ? { ...sr, notes } : sr,
+      );
+      return { draft: { ...d, subRooms } };
+    }),
+
+  toggleSubRoomWallLock: (subRoomId, wallId) =>
+    set((state) => {
+      const d = state.draft;
+      const subRooms = d.subRooms.map((sr) => {
+        if (sr.id !== subRoomId) return sr;
+        const ids = sr.lockedWallIds;
+        const next = ids.includes(wallId)
+          ? ids.filter((id) => id !== wallId)
+          : [...ids, wallId];
+        return { ...sr, lockedWallIds: next };
+      });
+      return { draft: { ...d, subRooms } };
+    }),
+
   loadRoom: (room) =>
     set({
       draft: {
@@ -226,6 +338,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
         ceilingType: room.ceiling.type,
         floorNotes: room.floor.notes ?? '',
         ceilingNotes: room.ceiling.notes ?? '',
+        subRooms: room.subRooms ?? [],
       },
       editingRoomId: room.id,
     }),
@@ -279,6 +392,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       floor: { area: floorArea, type: draft.floorType, notes: draft.floorNotes || undefined },
       ceiling: { area: floorArea, type: draft.ceilingType, notes: draft.ceilingNotes || undefined },
       position,
+      subRooms: draft.subRooms,
     };
   },
 }));

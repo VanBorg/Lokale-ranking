@@ -12,7 +12,7 @@ export const ROOM_TYPE_OPTIONS: { value: RoomType; label: string }[] = [
   { value: 'garage', label: 'Garage' },
   { value: 'attic', label: 'Zolder' },
   { value: 'basement', label: 'Kelder' },
-  { value: 'other', label: 'Overig' },
+  { value: 'other', label: 'Overige' },
 ];
 
 export const roomTypeLabels = Object.fromEntries(

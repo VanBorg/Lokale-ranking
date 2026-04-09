@@ -76,6 +76,6 @@ export const useProjectStore = create<ProjectState>()(
           },
         })),
     }),
-    { name: 'pixel-blueprint-project' },
+    { name: 'op-project-v1' },
   ),
 );
