@@ -139,9 +139,10 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       const vertices = snapVerticesCmToGrid(
         createPresetVertices(preset, DEFAULT_ROOM_W_CM, DEFAULT_ROOM_L_CM),
       );
+      // Completely new shape — fresh wall IDs; clear any stale locks.
       const walls = generateWallsFromVertices(vertices, d.height);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
-      return { draft: { ...d, preset, vertices, walls, subSpaces } };
+      return { draft: { ...d, preset, vertices, walls, subSpaces, lockedWallIds: [] } };
     }),
 
   updateVertex: (index, pos) =>
@@ -150,7 +151,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
       if (isVertexFrozen(index, d.walls, d.lockedWallIds)) return state;
       const snapped = { x: snapCmForRoomVertex(pos.x), y: snapCmForRoomVertex(pos.y) };
       const vertices = d.vertices.map((v, i) => (i === index ? snapped : v));
-      const walls = generateWallsFromVertices(vertices, d.height);
+      const walls = generateWallsFromVertices(vertices, d.height, d.walls);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
@@ -185,7 +186,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => {
       const d = state.draft;
       vertices = snapVerticesCmToGrid(vertices);
-      const walls = generateWallsFromVertices(vertices, d.height);
+      const walls = generateWallsFromVertices(vertices, d.height, d.walls);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
@@ -193,7 +194,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   setHeight: (height) =>
     set((state) => {
       const d = state.draft;
-      const walls = generateWallsFromVertices(d.vertices, height);
+      const walls = generateWallsFromVertices(d.vertices, height, d.walls);
       return { draft: { ...d, height, walls } };
     }),
 
@@ -237,7 +238,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => {
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CW(d.vertices));
-      const walls = generateWallsFromVertices(vertices, d.height);
+      const walls = generateWallsFromVertices(vertices, d.height, d.walls);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
@@ -246,7 +247,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
     set((state) => {
       const d = state.draft;
       const vertices = snapVerticesCmToGrid(rotateVertices90CCW(d.vertices));
-      const walls = generateWallsFromVertices(vertices, d.height);
+      const walls = generateWallsFromVertices(vertices, d.height, d.walls);
       const subSpaces = revalidateSubSpaces(d.subSpaces, vertices, d.zonePlacementMode);
       return { draft: { ...d, vertices, walls, subSpaces } };
     }),
