@@ -46,7 +46,7 @@ export const WallLengthEditor = () => {
 
   const handleLengthChange = (wallIndex: number, newLengthCm: number) => {
     if (newLengthCm < 10) return;
-    const { vertices: verts } = useRoomStore.getState().draft;
+    const { vertices: verts, walls, lockedWallIds } = useRoomStore.getState().draft;
     const n = verts.length;
     const startIdx = wallIndex;
     const endIdx = (wallIndex + 1) % n;
@@ -57,9 +57,30 @@ export const WallLengthEditor = () => {
     const currentLen = Math.sqrt(dx * dx + dy * dy);
     if (currentLen === 0) return;
     const scale = newLengthCm / currentLen;
-    updateVertex(endIdx, {
-      x: Math.round(start.x + dx * scale),
-      y: Math.round(start.y + dy * scale),
+
+    // Check if end-vertex is frozen (belongs to a locked wall)
+    const endFrozen =
+      lockedWallIds.includes(walls[endIdx % n]?.id ?? '') ||
+      lockedWallIds.includes(walls[(endIdx - 1 + n) % n]?.id ?? '');
+
+    if (!endFrozen) {
+      // Normal: stretch end-vertex away from start
+      updateVertex(endIdx, {
+        x: Math.round(start.x + dx * scale),
+        y: Math.round(start.y + dy * scale),
+      });
+      return;
+    }
+
+    // Fallback: end is frozen, try moving start-vertex in opposite direction
+    const startFrozen =
+      lockedWallIds.includes(walls[startIdx % n]?.id ?? '') ||
+      lockedWallIds.includes(walls[(startIdx - 1 + n) % n]?.id ?? '');
+    if (startFrozen) return; // both ends frozen — nothing we can do
+
+    updateVertex(startIdx, {
+      x: Math.round(end.x - dx * scale),
+      y: Math.round(end.y - dy * scale),
     });
   };
 
@@ -110,7 +131,7 @@ export const WallLengthEditor = () => {
                     if (!Number.isFinite(v)) return;
                     handleLengthChange(i, mToCm(v));
                   }}
-                  className="w-20 rounded border border-line bg-surface px-1.5 py-0.5 text-center text-xs text-white focus:border-brand focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-20 rounded border border-line bg-surface px-1.5 py-0.5 text-center text-xs text-white focus:border-brand focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
                 <span className="text-xs text-muted">m</span>
                 <button
