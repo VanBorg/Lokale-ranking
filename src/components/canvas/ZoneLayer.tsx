@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react';
+import type Konva from 'konva';
 import { Group, Rect, Text } from 'react-konva';
 import type { RoomVertex, SubSpace, ZonePlacementMode } from '../../types/room';
 import { ROOM_CANVAS_SCALE, snapCmForRoomVertex } from '../../utils/geometry';
@@ -44,15 +45,15 @@ export const ZoneLayer = ({
         const zy = s.position.y * ROOM_CANVAS_SCALE;
         const zw = s.width * ROOM_CANVAS_SCALE;
         const zh = s.length * ROOM_CANVAS_SCALE;
-        const dimLabel = `${(s.width / 100).toFixed(2)} × ${(s.length / 100).toFixed(2)} m`;
+        const fmt = (cm: number) => (cm / 100).toFixed(2).replace('.', ',');
+        const dimLabel = `${fmt(s.width)} × ${fmt(s.length)}`;
         const nameLine = s.name?.trim() ?? '';
         const minSide = Math.min(zw, zh);
-        const labelFont = minSide < 56 ? 8 : 10;
+        const labelFont = minSide < 56 ? 11 : 13;
         const lineCount = nameLine ? 2 : 1;
-        const textBlockH = lineCount * labelFont * 1.15;
+        const textBlockH = lineCount * labelFont * 1.3;
         const labelY = Math.max(2, zh / 2 - textBlockH / 2);
         const handleSize = Math.min(12, Math.max(8, minSide / 6));
-        const handleHalf = handleSize / 2;
 
         return (
           <Group
@@ -114,11 +115,20 @@ export const ZoneLayer = ({
                     ['bl', 0, zh],
                     ['br', zw, zh],
                   ] as const
-                ).map(([corner, cx, cy]) => (
+                ).map(([corner, cx, cy]) => {
+                  // Place handle fully inside the zone corner
+                  const hx = cx === 0 ? 0 : cx - handleSize;
+                  const hy = cy === 0 ? 0 : cy - handleSize;
+                  // Recover the corner pixel coordinate from the dragged handle position
+                  const cornerPxX = (t: Konva.Node) =>
+                    cx === 0 ? t.x() : t.x() + handleSize;
+                  const cornerPxY = (t: Konva.Node) =>
+                    cy === 0 ? t.y() : t.y() + handleSize;
+                  return (
                   <Rect
                     key={`${s.id}-${corner}`}
-                    x={cx - handleHalf}
-                    y={cy - handleHalf}
+                    x={hx}
+                    y={hy}
                     width={handleSize}
                     height={handleSize}
                     fill="#ffffff"
@@ -139,24 +149,16 @@ export const ZoneLayer = ({
                     onDragMove={(e) => {
                       e.cancelBubble = true;
                       if (!onZoneChange) return;
-                      const localX = snapCmForRoomVertex(
-                        (e.target.x() + handleHalf) / ROOM_CANVAS_SCALE,
-                      );
-                      const localY = snapCmForRoomVertex(
-                        (e.target.y() + handleHalf) / ROOM_CANVAS_SCALE,
-                      );
+                      const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
+                      const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
                       const next = getResizeUpdate(s, localX, localY, corner);
                       if (next.width >= 10 && next.length >= 10) onZoneChange(s.id, next);
                     }}
                     onDragEnd={(e) => {
                       e.cancelBubble = true;
                       if (!onZoneChange) return;
-                      const localX = snapCmForRoomVertex(
-                        (e.target.x() + handleHalf) / ROOM_CANVAS_SCALE,
-                      );
-                      const localY = snapCmForRoomVertex(
-                        (e.target.y() + handleHalf) / ROOM_CANVAS_SCALE,
-                      );
+                      const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
+                      const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
                       const next = getResizeUpdate(s, localX, localY, corner);
                       const valid = isZonePlacementValid(
                         next.position.x, next.position.y, next.width, next.length,
@@ -174,10 +176,11 @@ export const ZoneLayer = ({
                           length: prev.h,
                         });
                       }
-                      e.target.position({ x: cx - handleHalf, y: cy - handleHalf });
+                      e.target.position({ x: hx, y: hy });
                     }}
                   />
-                ))}
+                  );
+                })}
               </>
             )}
 

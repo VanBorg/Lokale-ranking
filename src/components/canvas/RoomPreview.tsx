@@ -226,8 +226,8 @@ export const RoomPreview = ({
         onZoneChange={onZoneChange}
       />
 
-      {/* Wall lengths + corner angles — drawn above zones so they stay legible (e.g. stap Zones). */}
-      {walls.map((_, i) => {
+      {/* Wall lengths + corner angles — only in room-outline mode (slide 1). */}
+      {isOutlineMode && walls.map((_, i) => {
         const v1 = vertices[i]!;
         const v2 = vertices[(i + 1) % vertices.length]!;
         const mx = ((v1.x + v2.x) / 2) * ROOM_CANVAS_SCALE;
@@ -273,7 +273,7 @@ export const RoomPreview = ({
         );
       })}
 
-      {vertices.map((_, i) => {
+      {isOutlineMode && vertices.map((_, i) => {
         const deg = interiorAnglesDeg[i] ?? 0;
         const pos = angleLabelCentres[i];
         if (!pos) return null;

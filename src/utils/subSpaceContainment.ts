@@ -3,8 +3,9 @@ import { snapCmForRoomVertex } from './geometry';
 
 const EPS = 0.0001;
 
-const WALL_SNAP_DIST = 30; // cm — how close before snapping to a room wall
-const ZONE_SNAP_DIST = 20; // cm — how close before snapping to another zone's edge
+const WALL_SNAP_DIST = 30;   // cm — how close before snapping to a room wall
+const ZONE_SNAP_DIST = 20;   // cm — how close before snapping to another zone's edge
+const CORNER_SNAP_DIST = 25; // cm — zone corner snaps to a room vertex when this close
 
 const pointOnSegment = (
   px: number,
@@ -185,6 +186,46 @@ export function isZonePlacementValid(
   return true;
 }
 
+/**
+ * If any zone corner is within CORNER_SNAP_DIST of a room vertex, shift the
+ * zone so that corner aligns exactly with the vertex. Only the closest match
+ * is applied — X and Y are snapped together so the correct corner lands on
+ * the vertex.
+ */
+function applyCornerSnap(
+  zoneX: number,
+  zoneY: number,
+  zoneW: number,
+  zoneH: number,
+  roomVertices: RoomVertex[],
+): { x: number; y: number } {
+  const zoneCorners = [
+    { dx: 0,    dy: 0    },
+    { dx: zoneW, dy: 0   },
+    { dx: 0,    dy: zoneH },
+    { dx: zoneW, dy: zoneH },
+  ];
+
+  let bestDist = CORNER_SNAP_DIST;
+  let snapX = zoneX;
+  let snapY = zoneY;
+  let snapped = false;
+
+  for (const rv of roomVertices) {
+    for (const zc of zoneCorners) {
+      const dist = Math.sqrt((zoneX + zc.dx - rv.x) ** 2 + (zoneY + zc.dy - rv.y) ** 2);
+      if (dist < bestDist) {
+        bestDist = dist;
+        snapX = rv.x - zc.dx;
+        snapY = rv.y - zc.dy;
+        snapped = true;
+      }
+    }
+  }
+
+  return snapped ? { x: snapX, y: snapY } : { x: zoneX, y: zoneY };
+}
+
 function getBinnenWallSnapPosition(
   zoneX: number,
   zoneY: number,
@@ -226,6 +267,12 @@ function getBinnenWallSnapPosition(
 
   // No wall was in snap range — fall back to plain grid snap
   if (!best.valid) return { x: snapCmForRoomVertex(zoneX), y: snapCmForRoomVertex(zoneY) };
+
+  // Corner magnet: align a zone corner to a room vertex when close enough
+  const cornered = applyCornerSnap(best.x, best.y, zoneW, zoneH, roomVertices);
+  if (rectInsidePolygon(cornered.x, cornered.y, zoneW, zoneH, roomVertices)) {
+    return cornered;
+  }
   return { x: best.x, y: best.y };
 }
 
