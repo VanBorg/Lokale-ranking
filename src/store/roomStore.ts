@@ -13,6 +13,7 @@ import {
   snapCmForRoomVertex,
   snapVertexCmToGrid,
   snapVerticesCmToGrid,
+  isVertexFrozen,
 } from '../utils/geometry';
 import { calcPolygonArea, midpoint } from '../utils/geometry';
 import { createPresetVertices } from '../utils/presets';
@@ -146,6 +147,7 @@ export const useRoomStore = create<RoomStoreState>()((set, get) => ({
   updateVertex: (index, pos) =>
     set((state) => {
       const d = state.draft;
+      if (isVertexFrozen(index, d.walls, d.lockedWallIds)) return state;
       const snapped = { x: snapCmForRoomVertex(pos.x), y: snapCmForRoomVertex(pos.y) };
       const vertices = d.vertices.map((v, i) => (i === index ? snapped : v));
       const walls = generateWallsFromVertices(vertices, d.height);

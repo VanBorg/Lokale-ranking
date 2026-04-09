@@ -11,6 +11,7 @@ import {
   ROOM_CANVAS_SCALE,
   snapCmForRoomVertex,
   edgeLength,
+  isVertexFrozen,
 } from '../../utils/geometry';
 import type { WizardCanvasMode } from '../../utils/wizardCanvas';
 import { useRoomStore } from '../../store/roomStore';
@@ -187,30 +188,34 @@ export const RoomPreview = ({
 
       {/* Vertex drag handles — only in room-outline mode; key=index: RoomVertex has no id, drag uses index */}
       {isOutlineMode &&
-        vertices.map((v, i) => (
-          <Group
-            key={i}
-            x={v.x * ROOM_CANVAS_SCALE}
-            y={v.y * ROOM_CANVAS_SCALE}
-            draggable
-            dragDistance={3}
-            onDragMove={(e) => onVertexDrag?.(i, vertexCmFromDragTarget(e.target))}
-            onDragEnd={(e) => {
-              onVertexDrag?.(i, vertexCmFromDragTarget(e.target));
-              onVertexDragEnd?.();
-            }}
-          >
-            {/* Large invisible hit area */}
-            <Circle radius={22} fill="rgba(0,0,0,0.001)" strokeWidth={0} listening />
-            <Circle
-              radius={10}
-              fill={KONVA_COLORS.vertexHandle}
-              stroke={KONVA_COLORS.vertexHandleStroke}
-              strokeWidth={2}
-              listening={false}
-            />
-          </Group>
-        ))}
+        vertices.map((v, i) => {
+          const frozen = isVertexFrozen(i, walls, lockedWallIds);
+          return (
+            <Group
+              key={i}
+              x={v.x * ROOM_CANVAS_SCALE}
+              y={v.y * ROOM_CANVAS_SCALE}
+              draggable={!frozen}
+              dragDistance={3}
+              listening={!frozen}
+              onDragMove={(e) => onVertexDrag?.(i, vertexCmFromDragTarget(e.target))}
+              onDragEnd={(e) => {
+                onVertexDrag?.(i, vertexCmFromDragTarget(e.target));
+                onVertexDragEnd?.();
+              }}
+            >
+              {/* Large invisible hit area */}
+              <Circle radius={22} fill="rgba(0,0,0,0.001)" strokeWidth={0} listening />
+              <Circle
+                radius={10}
+                fill={frozen ? KONVA_COLORS.vertexHandleLocked : KONVA_COLORS.vertexHandle}
+                stroke={KONVA_COLORS.vertexHandleStroke}
+                strokeWidth={2}
+                listening={false}
+              />
+            </Group>
+          );
+        })}
 
       {/* Zone rectangles — always visible, interactive only in sub-space-layout mode */}
       <ZoneLayer

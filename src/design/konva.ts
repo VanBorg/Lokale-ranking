@@ -34,6 +34,7 @@ export const KONVA_COLORS = {
 
   vertexHandle: '#2aa9ed',
   vertexHandleStroke: '#ffffff',
+  vertexHandleLocked: '#f97316',
 
   zoneFill: '#b8ecfd',
   zoneStroke: '#2aa9ed',

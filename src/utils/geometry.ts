@@ -261,3 +261,16 @@ export function rotateVertices90CCW(vertices: RoomVertex[]): RoomVertex[] {
     y: v.y - rbb.minY,
   }));
 }
+
+export function isVertexFrozen(
+  index: number,
+  walls: Wall[],
+  lockedWallIds: string[],
+): boolean {
+  const n = walls.length;
+  if (n === 0) return false;
+  return (
+    lockedWallIds.includes(walls[index % n]?.id ?? '') ||
+    lockedWallIds.includes(walls[(index - 1 + n) % n]?.id ?? '')
+  );
+}
