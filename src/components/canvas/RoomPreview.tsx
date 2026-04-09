@@ -57,6 +57,7 @@ export const RoomPreview = ({
 }: RoomPreviewProps) => {
   const canvasZoom = useUiStore((s) => s.canvasZoom);
   const hoveredWallIndex = useUiStore((s) => s.hoveredWallIndex);
+  const setSelectedZoneId = useUiStore((s) => s.setSelectedZoneId);
   const lockedWallIds = useRoomStore((s) => s.draft.lockedWallIds);
 
   /** Keeps label size & padding readable at any floor-plan zoom (Stage scales the whole layer). */
@@ -96,6 +97,22 @@ export const RoomPreview = ({
   );
 
   const interiorAnglesDeg = useMemo(() => polygonVertexInteriorAnglesDeg(vertices), [vertices]);
+
+  /**
+   * Diagonal resize cursor per vertex: nwse-resize (↖↘) when the vertex sits in the
+   * top-left / bottom-right quadrant relative to the room centre, nesw-resize (↗↙) otherwise.
+   */
+  const vertexCursors = useMemo(() => {
+    if (vertices.length < 3) return vertices.map(() => 'nwse-resize');
+    const bb = verticesBoundingBox(vertices);
+    const cx = (bb.minX + bb.maxX) / 2;
+    const cy = (bb.minY + bb.maxY) / 2;
+    return vertices.map((v) => {
+      const dx = v.x - cx;
+      const dy = v.y - cy;
+      return dx * dy >= 0 ? 'nwse-resize' : 'nesw-resize';
+    });
+  }, [vertices]);
 
   const iconCentre = useMemo(() => {
     if (vertices.length < 3) return null;
@@ -153,7 +170,7 @@ export const RoomPreview = ({
   }, [vertices, z]);
 
   return (
-    <Group x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening>
+    <Group x={x} y={y} opacity={isDimmed ? 0.4 : 0.85} listening onClick={() => setSelectedZoneId(null)}>
       {/* Room outline */}
       <Line
         listening={false}
@@ -198,10 +215,27 @@ export const RoomPreview = ({
               draggable={!frozen}
               dragDistance={3}
               listening={!frozen}
+              onMouseEnter={(e) => {
+                const cur = vertexCursors[i] ?? 'nwse-resize';
+                const c = e.target.getStage()?.container();
+                if (c) c.style.cursor = cur;
+              }}
+              onMouseLeave={(e) => {
+                const c = e.target.getStage()?.container();
+                if (c) c.style.cursor = '';
+              }}
+              onDragStart={(e) => {
+                const cur = vertexCursors[i] ?? 'nwse-resize';
+                const c = e.target.getStage()?.container();
+                if (c) c.style.cursor = cur;
+              }}
               onDragMove={(e) => onVertexDrag?.(i, vertexCmFromDragTarget(e.target))}
               onDragEnd={(e) => {
                 onVertexDrag?.(i, vertexCmFromDragTarget(e.target));
                 onVertexDragEnd?.();
+                const cur = vertexCursors[i] ?? 'nwse-resize';
+                const c = e.target.getStage()?.container();
+                if (c) c.style.cursor = cur;
               }}
             >
               {/* Large invisible hit area */}

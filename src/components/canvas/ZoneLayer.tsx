@@ -9,7 +9,18 @@ import {
   isZonePlacementValid,
   getResizeUpdate,
 } from '../../utils/subSpaceContainment';
-import { KONVA_COLORS, KONVA_FONT_FAMILY } from '../../design/konva';
+import {
+  KONVA_COLORS,
+  KONVA_EMOJI_FONT_FAMILY,
+  KONVA_FONT_FAMILY,
+  SPACE_TYPE_ICONS,
+} from '../../design/konva';
+import { useUiStore } from '../../store/uiStore';
+
+/** Screen-px constants for outside dimension labels (inverse-scaled, like wall labels). */
+const DIM_FONT = 13;
+const DIM_STROKE = 3.5;
+const DIM_PAD = 14; // px gap between zone edge and label centre
 
 interface ZoneLayerProps {
   subSpaces: SubSpace[];
@@ -29,6 +40,13 @@ export const ZoneLayer = ({
   const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
   const prevSizes = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map());
 
+  const canvasZoom = useUiStore((s) => s.canvasZoom);
+  const selectedZoneId = useUiStore((s) => s.selectedZoneId);
+  const setSelectedZoneId = useUiStore((s) => s.setSelectedZoneId);
+
+  const z = Math.max(canvasZoom, 0.2);
+  const invZ = 1 / z;
+
   const snapZonePosition = useCallback(
     (id: string, zoneX: number, zoneY: number, zoneW: number, zoneH: number) => {
       const wallSnapped = getZoneWallSnapPosition(zoneX, zoneY, zoneW, zoneH, vertices, zonePlacementMode);
@@ -45,15 +63,19 @@ export const ZoneLayer = ({
         const zy = s.position.y * ROOM_CANVAS_SCALE;
         const zw = s.width * ROOM_CANVAS_SCALE;
         const zh = s.length * ROOM_CANVAS_SCALE;
-        const fmt = (cm: number) => (cm / 100).toFixed(2).replace('.', ',');
-        const dimLabel = `${fmt(s.width)} × ${fmt(s.length)}`;
-        const nameLine = s.name?.trim() ?? '';
+
+        const isSelected = selectedZoneId === s.id;
         const minSide = Math.min(zw, zh);
-        const labelFont = minSide < 56 ? 11 : 13;
-        const lineCount = nameLine ? 2 : 1;
-        const textBlockH = lineCount * labelFont * 1.3;
-        const labelY = Math.max(2, zh / 2 - textBlockH / 2);
         const handleSize = Math.min(12, Math.max(8, minSide / 6));
+
+        // Icon sizing: fits nicely for a 200cm zone at typical zoom
+        const iconBoxSize = Math.min(44, Math.max(24, minSide * 0.4));
+        const iconFontSize = iconBoxSize * 0.58;
+        const icon = s.spaceType ? SPACE_TYPE_ICONS[s.spaceType] : '❓';
+
+        // Outside dimension labels (shown when selected, inverse-scaled)
+        const widthM = `${(s.width / 100).toFixed(2).replace('.', ',')} m`;
+        const heightM = `${(s.length / 100).toFixed(2).replace('.', ',')} m`;
 
         return (
           <Group
@@ -61,7 +83,10 @@ export const ZoneLayer = ({
             x={zx}
             y={zy}
             draggable={interactive}
-            listening={interactive}
+            listening={interactive || isSelected}
+            onClick={() => {
+              if (interactive) setSelectedZoneId(isSelected ? null : s.id);
+            }}
             onDragStart={() => {
               prevPositions.current.set(s.id, { ...s.position });
             }}
@@ -95,15 +120,29 @@ export const ZoneLayer = ({
               }
             }}
           >
+            {/* Zone fill + border */}
             <Rect
               width={zw}
               height={zh}
               fill={KONVA_COLORS.zoneFill}
-              stroke={KONVA_COLORS.zoneStroke}
-              strokeWidth={1}
+              stroke={isSelected ? KONVA_COLORS.zoneStroke : KONVA_COLORS.zoneStroke}
+              strokeWidth={isSelected ? 2.5 : 1}
               opacity={0.85}
               listening
             />
+
+            {/* Selection highlight ring */}
+            {isSelected && (
+              <Rect
+                width={zw}
+                height={zh}
+                stroke="#38bdf8"
+                strokeWidth={2.5}
+                fill="transparent"
+                listening={false}
+                dash={[6, 3]}
+              />
+            )}
 
             {/* Corner resize handles — only in interactive mode */}
             {interactive && (
@@ -116,87 +155,153 @@ export const ZoneLayer = ({
                     ['br', zw, zh],
                   ] as const
                 ).map(([corner, cx, cy]) => {
-                  // Place handle fully inside the zone corner
                   const hx = cx === 0 ? 0 : cx - handleSize;
                   const hy = cy === 0 ? 0 : cy - handleSize;
-                  // Recover the corner pixel coordinate from the dragged handle position
                   const cornerPxX = (t: Konva.Node) =>
                     cx === 0 ? t.x() : t.x() + handleSize;
                   const cornerPxY = (t: Konva.Node) =>
                     cy === 0 ? t.y() : t.y() + handleSize;
                   return (
-                  <Rect
-                    key={`${s.id}-${corner}`}
-                    x={hx}
-                    y={hy}
-                    width={handleSize}
-                    height={handleSize}
-                    fill="#ffffff"
-                    stroke={KONVA_COLORS.zoneStroke}
-                    strokeWidth={1}
-                    cornerRadius={2}
-                    draggable
-                    dragDistance={2}
-                    onDragStart={(e) => {
-                      e.cancelBubble = true;
-                      prevSizes.current.set(s.id, {
-                        x: s.position.x,
-                        y: s.position.y,
-                        w: s.width,
-                        h: s.length,
-                      });
-                    }}
-                    onDragMove={(e) => {
-                      e.cancelBubble = true;
-                      if (!onZoneChange) return;
-                      const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
-                      const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
-                      const next = getResizeUpdate(s, localX, localY, corner);
-                      if (next.width >= 10 && next.length >= 10) onZoneChange(s.id, next);
-                    }}
-                    onDragEnd={(e) => {
-                      e.cancelBubble = true;
-                      if (!onZoneChange) return;
-                      const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
-                      const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
-                      const next = getResizeUpdate(s, localX, localY, corner);
-                      const valid = isZonePlacementValid(
-                        next.position.x, next.position.y, next.width, next.length,
-                        vertices, subSpaces, s.id, zonePlacementMode,
-                      );
-                      if (valid) {
-                        onZoneChange(s.id, next);
-                      } else {
-                        const prev = prevSizes.current.get(s.id) ?? {
-                          x: s.position.x, y: s.position.y, w: s.width, h: s.length,
-                        };
-                        onZoneChange(s.id, {
-                          position: { x: prev.x, y: prev.y },
-                          width: prev.w,
-                          length: prev.h,
+                    <Rect
+                      key={`${s.id}-${corner}`}
+                      x={hx}
+                      y={hy}
+                      width={handleSize}
+                      height={handleSize}
+                      fill="#ffffff"
+                      stroke={KONVA_COLORS.zoneStroke}
+                      strokeWidth={1}
+                      cornerRadius={2}
+                      draggable
+                      dragDistance={2}
+                      onDragStart={(e) => {
+                        e.cancelBubble = true;
+                        prevSizes.current.set(s.id, {
+                          x: s.position.x,
+                          y: s.position.y,
+                          w: s.width,
+                          h: s.length,
                         });
-                      }
-                      e.target.position({ x: hx, y: hy });
-                    }}
-                  />
+                      }}
+                      onDragMove={(e) => {
+                        e.cancelBubble = true;
+                        if (!onZoneChange) return;
+                        const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
+                        const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
+                        const next = getResizeUpdate(s, localX, localY, corner);
+                        if (next.width >= 10 && next.length >= 10) onZoneChange(s.id, next);
+                      }}
+                      onDragEnd={(e) => {
+                        e.cancelBubble = true;
+                        if (!onZoneChange) return;
+                        const localX = snapCmForRoomVertex(cornerPxX(e.target) / ROOM_CANVAS_SCALE);
+                        const localY = snapCmForRoomVertex(cornerPxY(e.target) / ROOM_CANVAS_SCALE);
+                        const next = getResizeUpdate(s, localX, localY, corner);
+                        const valid = isZonePlacementValid(
+                          next.position.x, next.position.y, next.width, next.length,
+                          vertices, subSpaces, s.id, zonePlacementMode,
+                        );
+                        if (valid) {
+                          onZoneChange(s.id, next);
+                        } else {
+                          const prev = prevSizes.current.get(s.id) ?? {
+                            x: s.position.x, y: s.position.y, w: s.width, h: s.length,
+                          };
+                          onZoneChange(s.id, {
+                            position: { x: prev.x, y: prev.y },
+                            width: prev.w,
+                            length: prev.h,
+                          });
+                        }
+                        e.target.position({ x: hx, y: hy });
+                      }}
+                    />
                   );
                 })}
               </>
             )}
 
-            <Text
-              listening={false}
-              x={0}
-              y={labelY}
-              width={zw}
-              text={nameLine ? `${nameLine}\n${dimLabel}` : dimLabel}
-              fontFamily={KONVA_FONT_FAMILY}
-              fontSize={labelFont}
-              fontStyle="bold"
-              fill={KONVA_COLORS.zoneLabel}
-              align="center"
-              lineHeight={1.15}
-            />
+            {/* Space type icon in zone centre */}
+            <Group listening={false}>
+              <Rect
+                x={zw / 2 - iconBoxSize / 2}
+                y={zh / 2 - iconBoxSize / 2}
+                width={iconBoxSize}
+                height={iconBoxSize}
+                fill="rgba(51,65,85,0.88)"
+                cornerRadius={iconBoxSize * 0.2}
+              />
+              <Text
+                x={zw / 2 - iconBoxSize / 2}
+                y={zh / 2 - iconBoxSize / 2}
+                width={iconBoxSize}
+                height={iconBoxSize}
+                text={icon}
+                fontSize={iconFontSize}
+                fontFamily={KONVA_EMOJI_FONT_FAMILY}
+                align="center"
+                verticalAlign="middle"
+              />
+            </Group>
+
+            {/* Outside dimension labels — shown when zone is selected */}
+            {isSelected && (
+              <>
+                {/* Width label — above the zone (negative y offset, inverse-scaled) */}
+                <Group
+                  x={zw / 2}
+                  y={-(DIM_PAD / z)}
+                  scaleX={invZ}
+                  scaleY={invZ}
+                  listening={false}
+                >
+                  <Text
+                    x={0}
+                    y={0}
+                    text={widthM}
+                    fontFamily={KONVA_FONT_FAMILY}
+                    fontSize={DIM_FONT}
+                    fontStyle="bold"
+                    fill={KONVA_COLORS.dimensionLabelFill}
+                    stroke={KONVA_COLORS.dimensionLabelStroke}
+                    strokeWidth={DIM_STROKE}
+                    fillAfterStrokeEnabled
+                    lineJoin="round"
+                    align="center"
+                    offsetX={widthM.length * DIM_FONT * 0.32}
+                    offsetY={DIM_FONT / 2}
+                    listening={false}
+                  />
+                </Group>
+                {/* Height label — left of the zone, rotated */}
+                <Group
+                  x={-(DIM_PAD / z)}
+                  y={zh / 2}
+                  scaleX={invZ}
+                  scaleY={invZ}
+                  rotation={-90}
+                  listening={false}
+                >
+                  <Text
+                    x={0}
+                    y={0}
+                    text={heightM}
+                    fontFamily={KONVA_FONT_FAMILY}
+                    fontSize={DIM_FONT}
+                    fontStyle="bold"
+                    fill={KONVA_COLORS.dimensionLabelFill}
+                    stroke={KONVA_COLORS.dimensionLabelStroke}
+                    strokeWidth={DIM_STROKE}
+                    fillAfterStrokeEnabled
+                    lineJoin="round"
+                    align="center"
+                    offsetX={heightM.length * DIM_FONT * 0.32}
+                    offsetY={DIM_FONT / 2}
+                    listening={false}
+                  />
+                </Group>
+              </>
+            )}
           </Group>
         );
       })}
